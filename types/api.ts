@@ -42,7 +42,7 @@ export interface LotteriesByRegion {
   'Distrito Federal'?: Lottery[]
   Goiás?: Lottery[]
   'Minas Gerais'?: Lottery[]
-  'Ponto do Bicho'?: Lottery[]
+  'Lot Bicho'?: Lottery[]
   Paraíba?: Lottery[]
   [key: string]: Lottery[] | undefined
 }

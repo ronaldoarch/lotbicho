@@ -118,7 +118,7 @@ export default function ResultadosPage() {
           {activeTab === 'bicho' && (
             <div className="flex justify-center">
               <a
-                href="/apostar"
+                href="/jogo-do-bicho"
                 className="rounded-lg bg-yellow px-8 py-3 font-bold text-blue-950 hover:bg-yellow/90 transition-colors"
               >
                 JOGAR AGORA

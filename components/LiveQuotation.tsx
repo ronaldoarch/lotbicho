@@ -15,7 +15,7 @@ export default function LiveQuotation() {
             COTAÇÃO AO VIVO
           </h2>
         </div>
-        <a href="/cotacao" className="flex min-w-[84px] items-center gap-2 text-base text-blue underline">
+        <a href="/jogo-do-bicho/cotacao" className="flex min-w-[84px] items-center gap-2 text-base text-blue underline">
           Ver todos
         </a>
       </div>

@@ -5,11 +5,10 @@ export default function Header() {
     <header className="sticky top-0 z-30 flex w-full items-center justify-between bg-blue px-4 py-3 text-white lg:px-8">
       <div className="flex items-center gap-4">
         <a href="/" className="flex items-center gap-2">
-          <img 
-            src="https://ponto-do-bicho.b-cdn.net/logos/logo_branca.webp" 
-            alt="Logo" 
-            className="h-8 w-auto lg:h-10"
-          />
+          <div className="flex items-center gap-2">
+            <span className="text-2xl lg:text-3xl">🦁</span>
+            <span className="text-xl font-bold text-white lg:text-2xl">Lot Bicho</span>
+          </div>
         </a>
       </div>
 
@@ -21,12 +20,12 @@ export default function Header() {
             </a>
           </li>
           <li>
-            <a href="/apostar" className="h-12 rounded-2xl px-4 py-2 hover:bg-blue-scale-70 transition-colors">
+            <a href="/jogo-do-bicho" className="h-12 rounded-2xl px-4 py-2 hover:bg-blue-scale-70 transition-colors">
               Apostar
             </a>
           </li>
           <li>
-            <a href="/resultados" className="h-12 rounded-2xl px-4 py-2 hover:bg-blue-scale-70 transition-colors">
+            <a href="/jogo-do-bicho/resultados" className="h-12 rounded-2xl px-4 py-2 hover:bg-blue-scale-70 transition-colors">
               Resultados
             </a>
           </li>
@@ -36,7 +35,7 @@ export default function Header() {
             </a>
           </li>
           <li>
-            <a href="/cotacao" className="h-12 rounded-2xl px-4 py-2 hover:bg-blue-scale-70 transition-colors">
+            <a href="/jogo-do-bicho/cotacao" className="h-12 rounded-2xl px-4 py-2 hover:bg-blue-scale-70 transition-colors">
               Cotação
             </a>
           </li>

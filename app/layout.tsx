@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Ponto Bicho - Acerte no Jogo do Bicho e Ganhe!',
+  title: 'Lot Bicho - Acerte no Jogo do Bicho e Ganhe!',
   description: 'Jogue no Jogo do Bicho Online e concorra a até R$ 1 milhão com um palpite! 100% seguro, com saque imediato via Pix.',
 }
 

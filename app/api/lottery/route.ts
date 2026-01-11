@@ -24,7 +24,7 @@ const lotteries: LotteriesByRegion = {
       closingTime: null,
     },
   ],
-  'Ponto do Bicho': [
+  'Lot Bicho': [
     {
       id: 'ponto-madrugada',
       name: 'PONTO-MADRUGADA 02h',

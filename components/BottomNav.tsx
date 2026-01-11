@@ -33,13 +33,13 @@ export default function BottomNav() {
       </div>
 
       {/* Resultados */}
-      <a href="/resultados" className="flex cursor-pointer flex-col items-center justify-center gap-1 p-2 text-xs">
+      <a href="/jogo-do-bicho/resultados" className="flex cursor-pointer flex-col items-center justify-center gap-1 p-2 text-xs">
         <span className="iconify i-fluent:target-arrow-16-regular" style={{ fontSize: '20px' }}></span>
         Resultados
       </a>
 
       {/* Realizar Aposta - Botão Destaque */}
-      <a href="/apostar" className="bg-yellow">
+      <a href="/jogo-do-bicho" className="bg-yellow">
         <div className="relative -top-1 z-30 cursor-pointer bg-yellow px-2 text-xs text-blue-950 sm:px-4 sm:text-sm">
           <div className="pointer-events-none flex flex-col items-center justify-center gap-1">
             <span className="iconify i-material-symbols:pets" style={{ fontSize: '20px' }}></span>
@@ -53,7 +53,7 @@ export default function BottomNav() {
       </a>
 
       {/* Cotação */}
-      <a href="/cotacao" className="flex cursor-pointer flex-col items-center justify-center gap-1 p-2 text-xs">
+      <a href="/jogo-do-bicho/cotacao" className="flex cursor-pointer flex-col items-center justify-center gap-1 p-2 text-xs">
         <span className="iconify i-fluent:reward-16-regular" style={{ fontSize: '20px' }}></span>
         Cotação
       </a>

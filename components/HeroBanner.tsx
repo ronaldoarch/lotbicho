@@ -14,11 +14,10 @@ export default function HeroBanner() {
             <div className="absolute -top-2 -left-2 bg-red-600 text-white px-3 py-1 rounded-lg transform -rotate-2 text-sm font-bold">
               NOVO POR AQUI?
             </div>
-            <img 
-              src="https://ponto-do-bicho.b-cdn.net/logos/logo_escura.webp" 
-              alt="Logo" 
-              className="h-12 w-auto mt-8"
-            />
+            <div className="flex items-center gap-3 mt-8">
+              <span className="text-4xl">🦁</span>
+              <span className="text-3xl font-bold text-blue lg:text-4xl">Lot Bicho</span>
+            </div>
           </div>
 
           <div className="bg-blue rounded-2xl p-6 shadow-xl">

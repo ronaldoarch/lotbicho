@@ -21,11 +21,10 @@ export default function Footer() {
 
       <div className="flex w-full flex-col gap-10 p-8">
         <div className="flex w-full justify-center gap-4 lg:justify-between">
-          <img
-            src="https://ponto-do-bicho.b-cdn.net/logos/logo_escura.webp"
-            alt="Logo"
-            className="aspect-[361/70] h-auto w-auto"
-          />
+          <div className="flex items-center gap-3">
+            <span className="text-4xl">🦁</span>
+            <span className="text-3xl font-bold text-white lg:text-4xl">Lot Bicho</span>
+          </div>
           <div className="hidden items-center gap-8 lg:flex">
             <a href="/suporte">
               <button className="flex min-h-[48px] shrink-0 cursor-pointer touch-manipulation flex-nowrap items-center justify-center gap-2 rounded-xl border border-blue-scale-100 bg-transparent px-5 py-2 text-base font-semibold text-black transition-colors duration-75 hover:border-yellow hover:bg-blue-scale-2-10 hover:text-yellow focus:border-blue-scale-100 focus:text-blue-scale-100 active:bg-blue-scale-2-10 disabled:cursor-default disabled:opacity-80">
@@ -42,11 +41,9 @@ export default function Footer() {
       </div>
 
       <div className="flex w-full justify-center pb-14 lg:pb-0">
-        <img
-          src="https://ponto-do-bicho.b-cdn.net/logos/logo_simbolo.webp"
-          alt="Logo"
-          className="aspect-[50/71] h-auto w-auto"
-        />
+        <div className="flex items-center justify-center">
+          <span className="text-6xl">🦁</span>
+        </div>
       </div>
     </footer>
   )

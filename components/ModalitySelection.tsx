@@ -57,17 +57,17 @@ export default function ModalitySelection({
             <button
               key={modality.id}
               onClick={() => onModalitySelect(modality.id.toString())}
-              className={`flex flex-col rounded-md border-2 py-1.5 px-0.5 text-left transition-all ${
+              className={`flex min-h-[72px] flex-col justify-center rounded-md border-2 py-3 px-4 text-left transition-all ${
                 isSelected
                   ? 'border-blue bg-blue/5'
                   : 'border-gray-200 bg-white hover:border-blue/30'
               }`}
             >
-              <h3 className="mb-0.5 text-xs font-semibold text-gray-950 leading-tight">{modality.name}</h3>
+              <h3 className="mb-1 text-sm font-semibold text-gray-950 leading-tight">{modality.name}</h3>
               <div className="flex items-center gap-1">
-                <p className="text-sm font-bold text-blue leading-tight">{modality.value}</p>
+                <p className="text-base font-bold text-blue leading-tight">{modality.value}</p>
                 {modality.hasLink && (
-                  <span className="text-red-500 text-xs leading-none">🔥</span>
+                  <span className="text-red-500 text-sm leading-none">🔥</span>
                 )}
               </div>
             </button>

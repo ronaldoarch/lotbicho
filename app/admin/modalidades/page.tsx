@@ -13,6 +13,8 @@ interface Modality {
 export default function ModalidadesPage() {
   const [modalidades, setModalidades] = useState<Modality[]>([])
   const [loading, setLoading] = useState(true)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editedValue, setEditedValue] = useState<string>('')
 
   useEffect(() => {
     loadModalidades()
@@ -43,13 +45,51 @@ export default function ModalidadesPage() {
     }
   }
 
+  const startEditing = (modalidade: Modality) => {
+    setEditingId(modalidade.id)
+    // Extrai o valor numérico do formato "1x R$ 18.00"
+    const match = modalidade.value.match(/R\$\s*([\d.]+)/)
+    setEditedValue(match ? match[1] : '0')
+  }
+
+  const cancelEditing = () => {
+    setEditingId(null)
+    setEditedValue('')
+  }
+
+  const saveValue = async (id: number) => {
+    try {
+      const numericValue = parseFloat(editedValue) || 0
+      const formattedValue = `1x R$ ${numericValue.toFixed(2)}`
+      
+      await fetch('/api/admin/modalidades', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, value: formattedValue }),
+      })
+      
+      setEditingId(null)
+      setEditedValue('')
+      loadModalidades()
+      alert('Cotação atualizada com sucesso!')
+    } catch (error) {
+      console.error('Erro ao salvar cotação:', error)
+      alert('Erro ao salvar cotação')
+    }
+  }
+
+  const extractNumericValue = (value: string): number => {
+    const match = value.match(/R\$\s*([\d.]+)/)
+    return match ? parseFloat(match[1]) : 0
+  }
+
   if (loading) {
     return <div className="text-center py-8">Carregando...</div>
   }
 
   return (
     <div>
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Gerenciar Modalidades</h1>
+      <h1 className="text-3xl font-bold text-gray-900 mb-8">Gerenciar Modalidades e Cotações</h1>
 
       <div className="bg-white rounded-xl shadow-md overflow-hidden">
         <table className="w-full">
@@ -57,7 +97,7 @@ export default function ModalidadesPage() {
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nome</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Valor</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cotação (R$)</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Link Especial</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ações</th>
@@ -74,8 +114,56 @@ export default function ModalidadesPage() {
               modalidades.map((modalidade) => (
                 <tr key={modalidade.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{modalidade.id}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{modalidade.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{modalidade.value}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                    {modalidade.name}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {editingId === modalidade.id ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-700">R$</span>
+                        <input
+                          type="number"
+                          value={editedValue}
+                          onChange={(e) => setEditedValue(e.target.value)}
+                          className="w-24 px-3 py-1 border-2 border-blue rounded-lg focus:ring-2 focus:ring-blue focus:border-transparent"
+                          min="0"
+                          step="0.01"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              saveValue(modalidade.id)
+                            } else if (e.key === 'Escape') {
+                              cancelEditing()
+                            }
+                          }}
+                        />
+                        <button
+                          onClick={() => saveValue(modalidade.id)}
+                          className="text-green-600 hover:text-green-800 text-sm font-semibold"
+                        >
+                          ✓
+                        </button>
+                        <button
+                          onClick={cancelEditing}
+                          className="text-red-600 hover:text-red-800 text-sm font-semibold"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-blue">
+                          {modalidade.value}
+                        </span>
+                        <button
+                          onClick={() => startEditing(modalidade)}
+                          className="text-blue hover:text-blue-700 text-xs underline"
+                        >
+                          Editar
+                        </button>
+                      </div>
+                    )}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {modalidade.hasLink ? '✅ Sim' : '❌ Não'}
                   </td>
@@ -94,7 +182,7 @@ export default function ModalidadesPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button
                       onClick={() => toggleActive(modalidade.id, modalidade.active || true)}
-                      className="text-blue hover:text-blue-700"
+                      className="text-blue hover:text-blue-700 mr-4"
                     >
                       {modalidade.active !== false ? 'Desativar' : 'Ativar'}
                     </button>

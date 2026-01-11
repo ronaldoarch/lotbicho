@@ -32,12 +32,19 @@ export default function ModalidadesPage() {
     }
   }
 
-  const toggleActive = async (id: number, active: boolean) => {
+  const toggleActive = async (id: number) => {
     try {
+      // Encontra a modalidade atual para pegar o estado correto
+      const modalidade = modalidades.find((m) => m.id === id)
+      if (!modalidade) return
+      
+      // Pega o estado atual (se for undefined, considera como true)
+      const currentActive = modalidade.active !== undefined ? modalidade.active : true
+      
       await fetch('/api/admin/modalidades', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, active: !active }),
+        body: JSON.stringify({ id, active: !currentActive }),
       })
       loadModalidades()
     } catch (error) {
@@ -169,7 +176,7 @@ export default function ModalidadesPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <button
-                      onClick={() => toggleActive(modalidade.id, modalidade.active || true)}
+                      onClick={() => toggleActive(modalidade.id)}
                       className={`px-3 py-1 rounded-full text-xs font-semibold ${
                         modalidade.active !== false
                           ? 'bg-green-100 text-green-800'
@@ -181,7 +188,7 @@ export default function ModalidadesPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button
-                      onClick={() => toggleActive(modalidade.id, modalidade.active || true)}
+                      onClick={() => toggleActive(modalidade.id)}
                       className="text-blue hover:text-blue-700 mr-4"
                     >
                       {modalidade.active !== false ? 'Desativar' : 'Ativar'}

@@ -106,7 +106,7 @@ export default function HeroBanner() {
                     </div>
                     <div className="flex items-center gap-3 mt-8">
                       <span className="text-4xl">🦁</span>
-                      <span className="text-3xl font-bold text-blue lg:text-4xl">Lot Bicho</span>
+                      <span className="text-3xl font-bold text-blue lg:text-4xl">{configuracoes.nomePlataforma}</span>
                     </div>
                   </div>
 

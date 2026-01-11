@@ -1,13 +1,17 @@
 'use client'
 
+import { useConfiguracoes } from '@/hooks/useConfiguracoes'
+
 export default function Header() {
+  const { configuracoes } = useConfiguracoes()
+
   return (
     <header className="sticky top-0 z-30 flex w-full items-center justify-between bg-blue px-4 py-3 text-white lg:px-8">
       <div className="flex items-center gap-4">
         <a href="/" className="flex items-center gap-2">
           <div className="flex items-center gap-2">
             <span className="text-2xl lg:text-3xl">🦁</span>
-            <span className="text-xl font-bold text-white lg:text-2xl">Lot Bicho</span>
+            <span className="text-xl font-bold text-white lg:text-2xl">{configuracoes.nomePlataforma}</span>
           </div>
         </a>
       </div>

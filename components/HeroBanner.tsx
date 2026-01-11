@@ -94,8 +94,11 @@ export default function HeroBanner() {
             <div
               className="relative w-full overflow-hidden bg-gradient-to-br from-yellow via-yellow-400 to-yellow-300"
               style={{
-                backgroundImage:
-                  'repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,255,255,.1) 35px, rgba(255,255,255,.1) 70px)',
+                backgroundImage: banner.bannerImage
+                  ? `url(${banner.bannerImage}), repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,255,255,.1) 35px, rgba(255,255,255,.1) 70px)`
+                  : 'repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,255,255,.1) 35px, rgba(255,255,255,.1) 70px)',
+                backgroundSize: banner.bannerImage ? 'cover' : 'auto',
+                backgroundPosition: banner.bannerImage ? 'center' : 'auto',
               }}
             >
               {/* Conteúdo do Banner */}
@@ -107,7 +110,15 @@ export default function HeroBanner() {
                       {banner.badge}
                     </div>
                     <div className="flex items-center gap-3 mt-8">
-                      <span className="text-4xl">🦁</span>
+                      {banner.logoImage ? (
+                        <img
+                          src={banner.logoImage}
+                          alt={configuracoes.nomePlataforma}
+                          className="h-12 w-auto lg:h-16"
+                        />
+                      ) : (
+                        <span className="text-4xl">🦁</span>
+                      )}
                       <span className="text-3xl font-bold text-blue lg:text-4xl">{configuracoes.nomePlataforma}</span>
                     </div>
                   </div>

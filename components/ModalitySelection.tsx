@@ -34,20 +34,24 @@ export default function ModalitySelection({
 
   const loadModalidades = async () => {
     try {
-      const response = await fetch('/api/modalidades', { 
+      // Adiciona timestamp para evitar cache
+      const response = await fetch(`/api/modalidades?t=${Date.now()}`, { 
         cache: 'no-store',
         headers: {
-          'Cache-Control': 'no-cache',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
         },
       })
       const data = await response.json()
       if (data.modalidades && data.modalidades.length > 0) {
-        setModalidades(data.modalidades)
+        // Filtra apenas modalidades ativas antes de setar no estado
+        const activeModalidades = data.modalidades.filter((m: Modality) => m.active !== false)
+        setModalidades(activeModalidades)
         
         // Se a modalidade selecionada foi desativada, limpa a seleção
         if (selectedModality) {
-          const selectedMod = data.modalidades.find(
-            (m: Modality) => m.id.toString() === selectedModality && m.active !== false
+          const selectedMod = activeModalidades.find(
+            (m: Modality) => m.id.toString() === selectedModality
           )
           if (!selectedMod) {
             onModalitySelect('') // Limpa a seleção
@@ -106,9 +110,12 @@ export default function ModalitySelection({
 
           {/* Modalities Grid - 2 columns fixed */}
           <div className="mb-6 grid grid-cols-1 gap-2 md:grid-cols-2">
-            {modalidades
-              .filter((modality) => modality.active !== false) // Mostra apenas modalidades ativas
-              .map((modality) => {
+            {modalidades.length === 0 ? (
+              <div className="col-span-2 text-center py-8 text-gray-500">
+                Nenhuma modalidade disponível no momento.
+              </div>
+            ) : (
+              modalidades.map((modality) => {
                 const isSelected = selectedModality === modality.id.toString()
                 return (
                   <button
@@ -131,7 +138,8 @@ export default function ModalitySelection({
                     </div>
                   </button>
                 )
-              })}
+              })
+            )}
           </div>
         </>
       )}

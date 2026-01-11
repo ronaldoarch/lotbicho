@@ -65,7 +65,7 @@ export default function ModalitySelection({
             >
               <h3 className="text-base font-bold text-blue leading-tight">{modality.name}</h3>
               <div className="flex items-center gap-1">
-                <div className="inline-flex items-center gap-1 rounded-md border-2 border-blue bg-blue px-2 py-1">
+                <div className="inline-flex items-center gap-1 rounded-lg border-2 border-blue bg-blue px-2 py-1">
                   <span className="text-sm font-bold text-white leading-tight">{modality.value}</span>
                   {modality.hasLink && (
                     <span className="text-red-500 text-sm leading-none">🔥</span>

@@ -1,45 +1,6 @@
 // Store compartilhado para banners (em produção, usar banco de dados)
-let banners: any[] = [
-  {
-    id: 1,
-    title: 'Seu Primeiro Depósito Vale O DOBRO!',
-    badge: 'NOVO POR AQUI?',
-    highlight: 'DOBRO!',
-    button: 'Deposite agora e aproveite!',
-    bonus: 'R$ 50',
-    bonusBgClass: 'bg-green-600',
-    bannerImage: '',
-    logoImage: '',
-    active: true,
-    order: 1,
-  },
-  {
-    id: 2,
-    title: 'Ganhe Até R$ 1 MILHÃO!',
-    badge: 'PROMOÇÃO ESPECIAL',
-    highlight: 'R$ 1 MILHÃO!',
-    button: 'Aposte agora!',
-    bonus: 'R$ 100',
-    bonusBgClass: 'bg-blue-600',
-    bannerImage: '',
-    logoImage: '',
-    active: true,
-    order: 2,
-  },
-  {
-    id: 3,
-    title: 'Bônus de 100%!',
-    badge: 'BÔNUS EXCLUSIVO',
-    highlight: '100%!',
-    button: 'Confira as condições!',
-    bonus: 'R$ 200',
-    bonusBgClass: 'bg-purple-600',
-    bannerImage: '',
-    logoImage: '',
-    active: true,
-    order: 3,
-  },
-]
+// Inicializa vazio - banners devem ser criados via admin
+let banners: any[] = []
 
 export function getBanners(): any[] {
   return banners.filter((b) => b.active).sort((a, b) => a.order - b.order)

@@ -36,9 +36,12 @@ export default function HeroBanner() {
         },
       })
       const data = await response.json()
+      console.log('Banners carregados:', data.banners)
       if (data.banners) {
         // Sempre atualiza, mesmo que seja array vazio
         setBanners(data.banners)
+      } else {
+        setBanners([])
       }
     } catch (error) {
       console.error('Erro ao carregar banners:', error)

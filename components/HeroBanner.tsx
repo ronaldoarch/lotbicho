@@ -92,10 +92,7 @@ export default function HeroBanner() {
               }}
             >
               {/* Se houver imagem de banner, mostra apenas a imagem sem elementos decorativos */}
-              {banner.bannerImage ? (
-                // Banner com imagem - apenas a imagem, sem conteúdo sobreposto
-                <div className="relative w-full h-full min-h-[400px] lg:min-h-[500px]"></div>
-              ) : (
+              {!banner.bannerImage && (
                 // Banner sem imagem - mostra conteúdo padrão
                 <>
                   {/* Overlay escuro para melhorar legibilidade do texto quando há imagem */}

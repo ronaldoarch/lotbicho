@@ -14,7 +14,7 @@ export default function Header() {
               <img
                 src={configuracoes.logoSite}
                 alt={configuracoes.nomePlataforma}
-                className="h-12 w-auto lg:h-16"
+                className="h-16 w-auto lg:h-24"
               />
             ) : (
               <span className="text-2xl lg:text-3xl">🦁</span>

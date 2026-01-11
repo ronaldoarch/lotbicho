@@ -72,11 +72,11 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-50 bg-transparent"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-md rounded-2xl bg-blue p-6 shadow-2xl md:p-8"
+        className="absolute right-4 top-16 w-full max-w-md rounded-2xl bg-blue p-6 shadow-2xl md:right-8 md:p-8"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Botão fechar */}

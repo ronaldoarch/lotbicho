@@ -1,29 +1,55 @@
 'use client'
 
-const stories = [
-  {
-    id: 1,
-    image: 'https://ponto-do-bicho.b-cdn.net/stories/aposte-com-seguranca.webp',
-    alt: 'Aposte com segurança!'
-  },
-  {
-    id: 2,
-    image: 'https://ponto-do-bicho.b-cdn.net/stories/aposte-agora.webp',
-    alt: 'Aposte agora e tente a sorte!'
-  },
-  {
-    id: 3,
-    image: 'https://ponto-do-bicho.b-cdn.net/stories/eles-apostam-e-faturam.webp',
-    alt: 'Eles apostam e faturam!'
-  },
-  {
-    id: 4,
-    image: 'https://ponto-do-bicho.b-cdn.net/stories/fezinha-hoje.webp',
-    alt: 'Fez sua fezinha hoje?'
-  },
-]
+import { useEffect, useState } from 'react'
 
 export default function StoriesSection() {
+  const [stories, setStories] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    loadStories()
+    
+    // Recarrega quando a janela ganha foco
+    const handleFocus = () => {
+      loadStories()
+    }
+    window.addEventListener('focus', handleFocus)
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [])
+
+  const loadStories = async () => {
+    try {
+      const response = await fetch(`/api/stories?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        },
+      })
+      const data = await response.json()
+      if (data.stories && data.stories.length > 0) {
+        setStories(data.stories)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar stories:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Stories padrão caso não carregue
+  const defaultStories = [
+    {
+      id: 1,
+      image: 'https://ponto-do-bicho.b-cdn.net/stories/aposte-com-seguranca.webp',
+      alt: 'Aposte com segurança!'
+    },
+  ]
+
+  const storiesToShow = stories.length > 0 ? stories : defaultStories
   return (
     <section className="w-full rounded-xl bg-white p-4 md:p-6 lg:p-8">
       <div className="mb-8 flex items-center justify-between gap-1">
@@ -35,8 +61,11 @@ export default function StoriesSection() {
         </div>
       </div>
 
-      <div className="scrollbar-none flex w-full items-center justify-center gap-4 overflow-auto px-4 md:gap-6">
-        {stories.map((story) => (
+      {loading && stories.length === 0 ? (
+        <div className="text-center py-8 text-gray-600">Carregando stories...</div>
+      ) : (
+        <div className="scrollbar-none flex w-full items-center justify-center gap-4 overflow-auto px-4 md:gap-6">
+          {storiesToShow.map((story) => (
           <div
             key={story.id}
             className="relative h-16 w-16 shrink-0 cursor-pointer overflow-hidden rounded-full lg:h-24 lg:w-24"
@@ -60,7 +89,8 @@ export default function StoriesSection() {
             <span className="iconify i-ph:book-open text-xl"></span>
           </button>
         </div>
-      </div>
+        </div>
+      )}
     </section>
   )
 }

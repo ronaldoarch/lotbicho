@@ -1,12 +1,51 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { Swiper, SwiperSlide } from 'swiper/react'
 import { Autoplay, Pagination } from 'swiper/modules'
 import 'swiper/css'
 import 'swiper/css/pagination'
 
 export default function HeroBanner() {
-  const banners = [
+  const [banners, setBanners] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    loadBanners()
+    
+    // Recarrega quando a janela ganha foco
+    const handleFocus = () => {
+      loadBanners()
+    }
+    window.addEventListener('focus', handleFocus)
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [])
+
+  const loadBanners = async () => {
+    try {
+      const response = await fetch(`/api/banners?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        },
+      })
+      const data = await response.json()
+      if (data.banners && data.banners.length > 0) {
+        setBanners(data.banners)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar banners:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Banners padrão caso não carregue
+  const defaultBanners = [
     {
       id: 1,
       badge: 'NOVO POR AQUI?',
@@ -16,25 +55,21 @@ export default function HeroBanner() {
       bonus: 'R$ 50',
       bonusBgClass: 'bg-green-600',
     },
-    {
-      id: 2,
-      badge: 'PROMOÇÃO ESPECIAL',
-      title: 'Ganhe Até',
-      highlight: 'R$ 1 MILHÃO!',
-      button: 'Aposte agora!',
-      bonus: 'R$ 100',
-      bonusBgClass: 'bg-blue-600',
-    },
-    {
-      id: 3,
-      badge: 'BÔNUS EXCLUSIVO',
-      title: 'Bônus de',
-      highlight: '100%!',
-      button: 'Confira as condições!',
-      bonus: 'R$ 200',
-      bonusBgClass: 'bg-purple-600',
-    },
   ]
+
+  const bannersToShow = banners.length > 0 ? banners : defaultBanners
+
+  if (loading && banners.length === 0) {
+    return (
+      <div className="relative w-full overflow-hidden bg-gradient-to-br from-yellow via-yellow-400 to-yellow-300 min-h-[300px] flex items-center justify-center">
+        <div className="text-gray-600">Carregando banners...</div>
+      </div>
+    )
+  }
+
+  if (bannersToShow.length === 0) {
+    return null
+  }
 
   return (
     <div className="relative w-full overflow-hidden">
@@ -49,10 +84,10 @@ export default function HeroBanner() {
           bulletClass: 'swiper-pagination-bullet !bg-white/50',
           bulletActiveClass: 'swiper-pagination-bullet-active !bg-white',
         }}
-        loop={true}
+        loop={bannersToShow.length > 1}
         className="hero-banner-swiper"
       >
-        {banners.map((banner) => (
+        {bannersToShow.map((banner) => (
           <SwiperSlide key={banner.id}>
             <div
               className="relative w-full overflow-hidden bg-gradient-to-br from-yellow via-yellow-400 to-yellow-300"

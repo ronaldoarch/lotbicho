@@ -21,6 +21,22 @@ export default function StoryViewer({ stories, initialIndex, isOpen, onClose }: 
   const [currentIndex, setCurrentIndex] = useState(initialIndex)
   const [progress, setProgress] = useState(0)
 
+  const handleNext = () => {
+    if (currentIndex < stories.length - 1) {
+      setCurrentIndex(currentIndex + 1)
+      setProgress(0)
+    } else {
+      onClose()
+    }
+  }
+
+  const handlePrevious = () => {
+    if (currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1)
+      setProgress(0)
+    }
+  }
+
   useEffect(() => {
     if (!isOpen) {
       setProgress(0)
@@ -66,23 +82,7 @@ export default function StoryViewer({ stories, initialIndex, isOpen, onClose }: 
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, currentIndex])
-
-  const handleNext = () => {
-    if (currentIndex < stories.length - 1) {
-      setCurrentIndex(currentIndex + 1)
-      setProgress(0)
-    } else {
-      onClose()
-    }
-  }
-
-  const handlePrevious = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1)
-      setProgress(0)
-    }
-  }
+  }, [isOpen, currentIndex, stories.length])
 
   const handleSwipe = (direction: 'left' | 'right') => {
     if (direction === 'left') {

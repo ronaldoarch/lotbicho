@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     const ativo = searchParams.get('ativo')
 
     if (id) {
-      const tema = getTema(id)
+      const tema = await getTema(id)
       if (!tema) {
         return NextResponse.json({ error: 'Tema não encontrado' }, { status: 404 })
       }
@@ -24,11 +24,11 @@ export async function GET(request: NextRequest) {
     }
 
     if (ativo === 'true') {
-      const tema = getTemaAtivo()
+      const tema = await getTemaAtivo()
       return NextResponse.json({ tema })
     }
 
-    const temas = getTemas()
+    const temas = await getTemas()
     return NextResponse.json({ temas })
   } catch (error) {
     console.error('Erro ao buscar temas:', error)
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Nome e cores são obrigatórios' }, { status: 400 })
     }
 
-    const novoTema = createTema({
+    const novoTema = await createTema({
       nome,
       cores,
       ativo: false,
@@ -67,7 +67,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'ID é obrigatório' }, { status: 400 })
     }
 
-    const temaAtualizado = updateTema(id, updates)
+    const temaAtualizado = await updateTema(id, updates)
     if (!temaAtualizado) {
       return NextResponse.json({ error: 'Tema não encontrado' }, { status: 404 })
     }
@@ -88,10 +88,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'ID é obrigatório' }, { status: 400 })
     }
 
-    const deletado = deleteTema(id)
-    if (!deletado) {
-      return NextResponse.json({ error: 'Tema não encontrado ou não pode ser deletado' }, { status: 404 })
-    }
+    await deleteTema(id)
 
     return NextResponse.json({ success: true })
   } catch (error) {
@@ -110,7 +107,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (acao === 'ativar') {
-      const tema = setTemaAtivo(id)
+      const tema = await setTemaAtivo(id)
       if (!tema) {
         return NextResponse.json({ error: 'Tema não encontrado' }, { status: 404 })
       }

@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    const promocoes = getPromocoes()
+    const promocoes = await getPromocoes()
     return NextResponse.json({ promocoes })
   } catch (error) {
     console.error('Erro ao buscar promoções:', error)

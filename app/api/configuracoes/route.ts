@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    const configuracoes = getConfiguracoes()
+    const configuracoes = await getConfiguracoes()
     return NextResponse.json({ configuracoes })
   } catch (error) {
     console.error('Erro ao buscar configurações:', error)

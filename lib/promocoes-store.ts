@@ -1,46 +1,51 @@
-// Store compartilhado para promoções (em produção, usar banco de dados)
-let promocoes: any[] = []
+import { prisma } from './prisma'
 
-export function getPromocoes(): any[] {
-  return promocoes.filter((p) => p.active).sort((a, b) => {
-    if (a.order !== undefined && b.order !== undefined) {
-      return a.order - b.order
-    }
-    return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+export async function getPromocoes() {
+  return await prisma.promocao.findMany({
+    where: { active: true },
+    orderBy: [
+      { order: 'asc' },
+      { createdAt: 'desc' },
+    ],
   })
 }
 
-export function getAllPromocoes(): any[] {
-  return promocoes
+export async function getAllPromocoes() {
+  return await prisma.promocao.findMany({
+    orderBy: [
+      { order: 'asc' },
+      { createdAt: 'desc' },
+    ],
+  })
 }
 
-export function updatePromocao(id: number, updates: any): any | null {
-  const index = promocoes.findIndex((p) => p.id === id)
-  if (index === -1) {
-    return null
-  }
-  promocoes[index] = { ...promocoes[index], ...updates }
-  return promocoes[index]
+export async function updatePromocao(id: number, updates: any) {
+  return await prisma.promocao.update({
+    where: { id },
+    data: updates,
+  })
 }
 
-export function addPromocao(promocao: any): any {
-  const newPromocao = {
-    id: promocoes.length > 0 ? Math.max(...promocoes.map((p) => p.id)) + 1 : 1,
-    ...promocao,
-    tipo: promocao.tipo || 'outro',
-    active: promocao.active !== undefined ? promocao.active : true,
-    order: promocao.order || promocoes.length + 1,
-    createdAt: new Date().toISOString(),
-  }
-  promocoes.push(newPromocao)
-  return newPromocao
+export async function addPromocao(promocao: any) {
+  const maxOrder = await prisma.promocao.aggregate({
+    _max: { order: true },
+  })
+  
+  return await prisma.promocao.create({
+    data: {
+      tipo: promocao.tipo || 'outro',
+      valor: promocao.valor || 0,
+      titulo: promocao.titulo,
+      descricao: promocao.descricao,
+      active: promocao.active !== undefined ? promocao.active : true,
+      order: promocao.order || (maxOrder._max.order ? maxOrder._max.order + 1 : 1),
+    },
+  })
 }
 
-export function deletePromocao(id: number): boolean {
-  const index = promocoes.findIndex((p) => p.id === id)
-  if (index === -1) {
-    return false
-  }
-  promocoes.splice(index, 1)
+export async function deletePromocao(id: number) {
+  await prisma.promocao.delete({
+    where: { id },
+  })
   return true
 }

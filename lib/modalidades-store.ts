@@ -1,26 +1,57 @@
-import { MODALITIES as MODALITIES_DATA } from '@/data/modalities'
+import { prisma } from './prisma'
 import { Modality } from '@/types/bet'
+import { MODALITIES as MODALITIES_DATA } from '@/data/modalities'
 
-// Store compartilhado para modalidades (em produção, usar banco de dados)
-// Inicializa todas as modalidades como ativas por padrão
-let modalidades: Modality[] = MODALITIES_DATA.map((m) => ({
-  ...m,
-  active: m.active !== undefined ? m.active : true, // Por padrão, todas são ativas
-}))
-
-export function getModalidades(): Modality[] {
-  return modalidades
-}
-
-export function updateModalidade(id: number, updates: Partial<Modality>): Modality | null {
-  const index = modalidades.findIndex((m) => m.id === id)
-  if (index === -1) {
-    return null
+export async function getModalidades(): Promise<Modality[]> {
+  const modalidades = await prisma.modalidade.findMany({
+    orderBy: { id: 'asc' },
+  })
+  
+  // Se não houver modalidades no banco, inicializar com dados padrão
+  if (modalidades.length === 0) {
+    await initializeModalidades()
+    return await getModalidades()
   }
-  modalidades[index] = { ...modalidades[index], ...updates }
-  return modalidades[index]
+  
+  return modalidades.map((m) => ({
+    id: m.id,
+    name: m.name,
+    value: m.value,
+    hasLink: m.hasLink,
+    active: m.active,
+  }))
 }
 
-export function setModalidades(newModalidades: Modality[]) {
-  modalidades = newModalidades
+async function initializeModalidades() {
+  const modalidadesData = MODALITIES_DATA.map((m) => ({
+    name: m.name,
+    value: m.value,
+    hasLink: m.hasLink || false,
+    active: m.active !== undefined ? m.active : true,
+  }))
+  
+  await prisma.modalidade.createMany({
+    data: modalidadesData,
+  })
+}
+
+export async function updateModalidade(id: number, updates: Partial<Modality>) {
+  return await prisma.modalidade.update({
+    where: { id },
+    data: updates,
+  })
+}
+
+export async function setModalidades(newModalidades: Modality[]) {
+  // Deletar todas e recriar
+  await prisma.modalidade.deleteMany()
+  
+  await prisma.modalidade.createMany({
+    data: newModalidades.map((m) => ({
+      name: m.name,
+      value: m.value,
+      hasLink: m.hasLink || false,
+      active: m.active !== undefined ? m.active : true,
+    })),
+  })
 }

@@ -1,40 +1,42 @@
-// Store compartilhado para banners (em produção, usar banco de dados)
-// Inicializa vazio - banners devem ser criados via admin
-let banners: any[] = []
+import { prisma } from './prisma'
 
-export function getBanners(): any[] {
-  return banners.filter((b) => b.active).sort((a, b) => a.order - b.order)
+export async function getBanners() {
+  return await prisma.banner.findMany({
+    where: { active: true },
+    orderBy: { order: 'asc' },
+  })
 }
 
-export function getAllBanners(): any[] {
-  return banners.sort((a, b) => a.order - b.order)
+export async function getAllBanners() {
+  return await prisma.banner.findMany({
+    orderBy: { order: 'asc' },
+  })
 }
 
-export function updateBanner(id: number, updates: any): any | null {
-  const index = banners.findIndex((b) => b.id === id)
-  if (index === -1) {
-    return null
-  }
-  banners[index] = { ...banners[index], ...updates }
-  return banners[index]
+export async function updateBanner(id: number, updates: any) {
+  return await prisma.banner.update({
+    where: { id },
+    data: updates,
+  })
 }
 
-export function addBanner(banner: any): any {
-  const newBanner = {
-    id: banners.length > 0 ? Math.max(...banners.map((b) => b.id)) + 1 : 1,
-    ...banner,
-    active: banner.active !== undefined ? banner.active : true,
-    order: banner.order || banners.length + 1,
-  }
-  banners.push(newBanner)
-  return newBanner
+export async function addBanner(banner: any) {
+  const maxOrder = await prisma.banner.aggregate({
+    _max: { order: true },
+  })
+  
+  return await prisma.banner.create({
+    data: {
+      ...banner,
+      active: banner.active !== undefined ? banner.active : true,
+      order: banner.order || (maxOrder._max.order ? maxOrder._max.order + 1 : 1),
+    },
+  })
 }
 
-export function deleteBanner(id: number): boolean {
-  const index = banners.findIndex((b) => b.id === id)
-  if (index === -1) {
-    return false
-  }
-  banners.splice(index, 1)
+export async function deleteBanner(id: number) {
+  await prisma.banner.delete({
+    where: { id },
+  })
   return true
 }

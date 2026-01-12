@@ -1,0 +1,129 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Banner {
+  id          Int      @id @default(autoincrement())
+  title       String?
+  text        String?
+  bonus       String?
+  logoImage   String?
+  bannerImage String?
+  active      Boolean  @default(true)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Story {
+  id        Int      @id @default(autoincrement())
+  title     String?  @default("")
+  image     String
+  alt       String?  @default("")
+  active    Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Modalidade {
+  id        Int      @id @default(autoincrement())
+  name      String
+  value     String
+  hasLink   Boolean  @default(false)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Promocao {
+  id        Int      @id @default(autoincrement())
+  tipo      String   // 'dobro', 'percentual', 'fixo', 'cashback'
+  valor     Float
+  titulo    String?
+  descricao String?
+  active    Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Extracao {
+  id        Int      @id @default(autoincrement())
+  name      String
+  time      String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Cotacao {
+  id        Int      @id @default(autoincrement())
+  name      String?
+  value     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Tema {
+  id          String   @id @default(uuid())
+  nome        String
+  primaria    String   @default("#052370")
+  secundaria  String   @default("#FFD700")
+  acento      String   @default("#FF4444")
+  sucesso     String   @default("#25D366")
+  texto       String   @default("#1C1C1C")
+  textoSecundario String @default("#4A4A4A")
+  fundo       String   @default("#F5F5F5")
+  fundoSecundario String @default("#FFFFFF")
+  ativo       Boolean  @default(false)
+  criadoEm    DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+}
+
+model Configuracao {
+  id              Int      @id @default(autoincrement())
+  nomePlataforma  String   @default("Lot Bicho")
+  numeroSuporte   String   @default("(00) 00000-0000")
+  emailSuporte    String   @default("suporte@lotbicho.com")
+  whatsappSuporte String   @default("5500000000000")
+  logoSite        String?  @default("")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Usuario {
+  id        Int      @id @default(autoincrement())
+  nome      String
+  email     String   @unique
+  telefone  String?
+  saldo     Float    @default(0)
+  bonus     Float    @default(0)
+  bonusBloqueado Float @default(0)
+  bonusSemanal Int   @default(0)
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Saque {
+  id        Int      @id @default(autoincrement())
+  usuarioId Int
+  valor     Float
+  status    String   @default("pendente") // pendente, aprovado, rejeitado
+  motivo    String?
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([usuarioId])
+}

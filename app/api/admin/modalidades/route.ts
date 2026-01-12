@@ -4,14 +4,14 @@ import { getModalidades, updateModalidade } from '@/lib/modalidades-store'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const modalidades = getModalidades()
+  const modalidades = await getModalidades()
   return NextResponse.json({ modalidades, total: modalidades.length })
 }
 
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
-    const updated = updateModalidade(body.id, body)
+    const updated = await updateModalidade(body.id, body)
     if (!updated) {
       return NextResponse.json({ error: 'Modalidade não encontrada' }, { status: 404 })
     }

@@ -4,14 +4,14 @@ import { getAllPromocoes, addPromocao, updatePromocao, deletePromocao } from '@/
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const promocoes = getAllPromocoes()
+  const promocoes = await getAllPromocoes()
   return NextResponse.json({ promocoes, total: promocoes.length })
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const newPromocao = addPromocao(body)
+    const newPromocao = await addPromocao(body)
     return NextResponse.json({ promocao: newPromocao, message: 'Promoção criada com sucesso' })
   } catch (error) {
     return NextResponse.json({ error: 'Erro ao criar promoção' }, { status: 500 })
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
-    const updated = updatePromocao(body.id, body)
+    const updated = await updatePromocao(body.id, body)
     if (!updated) {
       return NextResponse.json({ error: 'Promoção não encontrada' }, { status: 404 })
     }
@@ -35,10 +35,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const id = parseInt(searchParams.get('id') || '0')
-    const deleted = deletePromocao(id)
-    if (!deleted) {
-      return NextResponse.json({ error: 'Promoção não encontrada' }, { status: 404 })
-    }
+    await deletePromocao(id)
     return NextResponse.json({ message: 'Promoção deletada com sucesso' })
   } catch (error) {
     return NextResponse.json({ error: 'Erro ao deletar promoção' }, { status: 500 })

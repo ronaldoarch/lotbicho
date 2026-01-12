@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    const banners = getBanners()
+    const banners = await getBanners()
     return NextResponse.json({ banners })
   } catch (error) {
     console.error('Erro ao buscar banners:', error)

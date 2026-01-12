@@ -5,9 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
-    "start": "node scripts/check-db.js && node .next/standalone/server.js",
-    "start:only": "node .next/standalone/server.js",
-    "start:next": "next start",
+    "start": "node scripts/check-db.js && next start",
+    "start:only": "next start",
     "lint": "next lint",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",

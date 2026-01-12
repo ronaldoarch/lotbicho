@@ -36,17 +36,32 @@ DATABASE_URL="postgres://postgres:SW1Ho4OVgCGpgpgZ6WVMd3fUU9E86f6H4O0CnuMUWU25b3
 
 ### Deploy no Colify
 
-#### Opção 1: Deploy Automático (Recomendado)
+#### Opção 1: Deploy com Dockerfile Customizado (Recomendado)
 
 1. **Configure a variável de ambiente `DATABASE_URL`** no painel do Colify com a URL do PostgreSQL:
    ```
    postgres://postgres:SW1Ho4OVgCGpgpgZ6WVMd3fUU9E86f6H4O0CnuMUWU25b3WzS80RetfPNz7z2Zle@uk40so004k8gc488ws0sokg0:5432/postgres
    ```
 
-2. **Faça o deploy normalmente** - o Colify vai:
-   - Instalar dependências (`npm install`)
-   - Gerar o Prisma Client automaticamente (já está no script `build`)
-   - Fazer o build do projeto
+2. **Configure o Volume Persistente** (IMPORTANTE para manter uploads):
+   - Vá em **"Configuration"** → **"Persistent Storage"**
+   - Clique em **"+ Add"** → **"Directory Mount"**
+   - Configure:
+     - **Source Path**: `/uploads-storage`
+     - **Destination Path**: `/app/public/uploads`
+     - **Size**: 5GB (ou o necessário)
+   - Salve e reinicie a aplicação
+
+3. **Para usar Dockerfile customizado** (opcional):
+   - O Colify detecta automaticamente o `Dockerfile` na raiz do projeto
+   - Se preferir, pode desabilitar o Nixpacks nas configurações avançadas
+   - O Dockerfile já está configurado com suporte a volumes persistentes
+
+4. **Faça o deploy normalmente** - o Dockerfile vai:
+   - Criar diretórios de upload automaticamente
+   - Instalar dependências (`npm ci`)
+   - Gerar o Prisma Client e fazer build
+   - Configurar volume para uploads
 
 3. **Após o primeiro deploy, rode no terminal do Colify** (apenas uma vez):
    ```bash

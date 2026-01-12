@@ -37,8 +37,14 @@ export async function POST(request: NextRequest) {
     const uploadPath = join(process.cwd(), 'public', 'uploads', uploadDir)
 
     // Criar diretório se não existir
-    if (!existsSync(uploadPath)) {
-      await mkdir(uploadPath, { recursive: true })
+    try {
+      if (!existsSync(uploadPath)) {
+        await mkdir(uploadPath, { recursive: true })
+        console.log(`📁 Diretório criado: ${uploadPath}`)
+      }
+    } catch (mkdirError) {
+      console.error('Erro ao criar diretório:', mkdirError)
+      return NextResponse.json({ error: 'Erro ao criar diretório de upload' }, { status: 500 })
     }
 
     // Gerar nome único para o arquivo
@@ -49,11 +55,24 @@ export async function POST(request: NextRequest) {
     const filePath = join(uploadPath, fileName)
 
     // Converter File para Buffer e salvar
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
-    await writeFile(filePath, buffer)
+    try {
+      const bytes = await file.arrayBuffer()
+      const buffer = Buffer.from(bytes)
+      await writeFile(filePath, buffer)
+      
+      // Verificar se o arquivo foi realmente salvo
+      if (!existsSync(filePath)) {
+        console.error(`❌ Arquivo não foi salvo: ${filePath}`)
+        return NextResponse.json({ error: 'Erro ao salvar arquivo' }, { status: 500 })
+      }
+      
+      console.log(`✅ Arquivo salvo: ${filePath}`)
+    } catch (writeError) {
+      console.error('Erro ao salvar arquivo:', writeError)
+      return NextResponse.json({ error: 'Erro ao salvar arquivo no servidor' }, { status: 500 })
+    }
 
-    // Retornar URL do arquivo
+    // Retornar URL do arquivo (usar caminho relativo para funcionar em qualquer ambiente)
     const fileUrl = `/uploads/${uploadDir}/${fileName}`
 
     return NextResponse.json({

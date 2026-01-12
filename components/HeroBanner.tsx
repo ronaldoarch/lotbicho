@@ -112,6 +112,14 @@ export default function HeroBanner() {
                               src={banner.logoImage}
                               alt={configuracoes.nomePlataforma}
                               className="h-12 w-auto lg:h-16"
+                              onError={(e) => {
+                                // Se a imagem falhar ao carregar, esconde e mostra o emoji
+                                e.currentTarget.style.display = 'none';
+                                const fallback = document.createElement('span');
+                                fallback.className = 'text-4xl';
+                                fallback.textContent = '🦁';
+                                e.currentTarget.parentNode?.insertBefore(fallback, e.currentTarget);
+                              }}
                             />
                           ) : (
                             <span className="text-4xl">🦁</span>

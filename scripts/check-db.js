@@ -1,4 +1,28 @@
 const { execSync } = require('child_process');
+const { mkdirSync } = require('fs');
+const { join } = require('path');
+
+function createUploadDirectories() {
+  try {
+    console.log('📁 Criando diretórios de upload...');
+    const baseDir = join(process.cwd(), 'public', 'uploads');
+    const dirs = ['banners', 'logos', 'stories'];
+    
+    dirs.forEach(dir => {
+      const dirPath = join(baseDir, dir);
+      try {
+        mkdirSync(dirPath, { recursive: true });
+        console.log(`✅ Diretório criado: ${dirPath}`);
+      } catch (err) {
+        if (err.code !== 'EEXIST') {
+          console.error(`⚠️  Erro ao criar diretório ${dirPath}:`, err.message);
+        }
+      }
+    });
+  } catch (error) {
+    console.error('⚠️  Erro ao criar diretórios de upload:', error.message);
+  }
+}
 
 function checkAndCreateTables() {
   try {
@@ -22,7 +46,8 @@ function checkAndCreateTables() {
       errorMessage.includes('already exists') || 
       errorMessage.includes('P3009') ||
       errorOutput.includes('already exists') ||
-      errorOutput.includes('P3009')
+      errorOutput.includes('P3009') ||
+      errorOutput.includes('in sync')
     ) {
       console.log('✅ Tabelas já existem no banco de dados');
     } else if (errorMessage.includes('timeout')) {
@@ -35,4 +60,5 @@ function checkAndCreateTables() {
 }
 
 // Sempre executa (tanto em produção quanto em desenvolvimento)
+createUploadDirectories();
 checkAndCreateTables();

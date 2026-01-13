@@ -91,11 +91,20 @@ function matchesDateFilter(value: string | undefined, filter: string) {
   const isoValue = toIsoDate(value)
   const isoFilter = toIsoDate(filter)
 
+  // Se a fonte não traz ano (ex.: 13/01), comparar só dia/mês
+  const dayMonth = (v: string) => {
+    const m = v.match(/(\d{2})\/(\d{2})/)
+    return m ? `${m[1]}/${m[2]}` : undefined
+  }
+  const dmValue = dayMonth(value)
+  const dmFilter = dayMonth(isoFilter)
+
   return (
     value.includes(filter) ||
     isoValue.startsWith(isoFilter) ||
     isoFilter.startsWith(isoValue) ||
-    value.includes(isoFilter)
+    value.includes(isoFilter) ||
+    (!!dmValue && !!dmFilter && dmValue === dmFilter)
   )
 }
 

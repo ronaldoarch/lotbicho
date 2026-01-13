@@ -84,11 +84,19 @@ function matchesDate(resultDate?: string, selectedDate?: string) {
   const isoResult = toIsoDate(resultDate)
   const isoFilter = toIsoDate(selectedDate)
 
+  const dayMonth = (v: string) => {
+    const m = v.match(/(\d{2})\/(\d{2})/)
+    return m ? `${m[1]}/${m[2]}` : undefined
+  }
+  const dmResult = dayMonth(resultDate)
+  const dmFilter = dayMonth(isoFilter)
+
   return (
     isoResult.startsWith(isoFilter) ||
     isoFilter.startsWith(isoResult) ||
     resultDate.includes(selectedDate) ||
-    isoResult.includes(selectedDate)
+    isoResult.includes(selectedDate) ||
+    (!!dmResult && !!dmFilter && dmResult === dmFilter)
   )
 }
 

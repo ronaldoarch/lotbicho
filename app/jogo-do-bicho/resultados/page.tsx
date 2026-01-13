@@ -7,26 +7,23 @@ import BottomNav from '@/components/BottomNav'
 import ResultsTable from '@/components/ResultsTable'
 import { LOCATIONS } from '@/data/results'
 import { useResultados } from '@/hooks/useResultados'
+import { formatDateLabel, getDefaultDateISO, groupResultsByDrawTime } from '@/lib/resultados-helpers'
 
 export default function ResultadosPage() {
-  const [selectedDate, setSelectedDate] = useState('2026-01-10')
-  const [selectedLocation, setSelectedLocation] = useState('Rio de Janeiro')
+  const defaultDate = getDefaultDateISO()
+  const [selectedDate, setSelectedDate] = useState(defaultDate)
+  const [selectedLocation, setSelectedLocation] = useState(LOCATIONS[0].name)
   const [activeTab, setActiveTab] = useState<'bicho' | 'loteria'>('bicho')
-  const { results, loading } = useResultados()
+  const { results, loading, load } = useResultados({ date: defaultDate, location: LOCATIONS[0].name })
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('pt-BR')
+  const groupedResults = useMemo(
+    () => groupResultsByDrawTime(results, selectedLocation, selectedDate),
+    [results, selectedLocation, selectedDate]
+  )
+
+  const handleSearch = () => {
+    load({ date: selectedDate, location: selectedLocation })
   }
-
-  const filteredResults = useMemo(() => {
-    const lf = selectedLocation.toLowerCase()
-    return results.filter((r) => {
-      const locationMatch = r.location ? r.location.toLowerCase().includes(lf) : true
-      const dateMatch = r.date ? r.date.startsWith(selectedDate) || r.date.includes(selectedDate) : true
-      return locationMatch && dateMatch
-    })
-  }, [results, selectedLocation, selectedDate])
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-scale-100">
@@ -92,7 +89,12 @@ export default function ResultadosPage() {
                   ))}
                 </select>
               </div>
-              <button className="rounded-lg bg-blue px-6 py-2 font-semibold text-white hover:bg-blue-scale-70 transition-colors">
+              <button
+                onClick={handleSearch}
+                className="rounded-lg bg-blue px-6 py-2 font-semibold text-white hover:bg-blue-scale-70 transition-colors disabled:opacity-70"
+                disabled={loading}
+                type="button"
+              >
                 Buscar
               </button>
             </div>
@@ -106,16 +108,29 @@ export default function ResultadosPage() {
             </p>
 
             {/* Results Table */}
-            {activeTab === 'bicho' && !loading && (
-              <ResultsTable
-                date={formatDate(selectedDate)}
-                location={selectedLocation}
-                drawTime={filteredResults[0]?.drawTime || 'Resultado recente'}
-                results={filteredResults}
-              />
-            )}
-            {activeTab === 'bicho' && loading && (
-              <div className="py-6 text-gray-600">Carregando resultados...</div>
+            {activeTab === 'bicho' && (
+              <>
+                {loading && <div className="py-6 text-gray-600">Carregando resultados...</div>}
+
+                {!loading && groupedResults.length === 0 && (
+                  <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-sm text-gray-600">
+                    Nenhum resultado encontrado para o filtro selecionado.
+                  </div>
+                )}
+
+                {!loading &&
+                  groupedResults.map((group) => (
+                    <div key={`${group.drawTime}-${group.dateLabel}`} className="mb-6 last:mb-0">
+                      <ResultsTable
+                        date={group.dateLabel || formatDateLabel(selectedDate)}
+                        location={group.locationLabel}
+                        drawTime={group.drawTime}
+                        results={group.rows}
+                        fallbackToSample={false}
+                      />
+                    </div>
+                  ))}
+              </>
             )}
 
             {/* Play Now Button */}

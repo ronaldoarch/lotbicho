@@ -1,20 +1,28 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import BottomNav from '@/components/BottomNav'
 import ResultsTable from '@/components/ResultsTable'
 import { LOCATIONS } from '@/data/results'
+import { useResultados } from '@/hooks/useResultados'
+import { formatDateLabel, getDefaultDateISO, groupResultsByDrawTime } from '@/lib/resultados-helpers'
 
 export default function ResultadosPage() {
-  const [selectedDate, setSelectedDate] = useState('2026-01-10')
-  const [selectedLocation, setSelectedLocation] = useState('Rio de Janeiro')
+  const defaultDate = getDefaultDateISO()
+  const [selectedDate, setSelectedDate] = useState(defaultDate)
+  const [selectedLocation, setSelectedLocation] = useState(LOCATIONS[0].name)
   const [activeTab, setActiveTab] = useState<'bicho' | 'loteria'>('bicho')
+  const { results, loading, load } = useResultados({ date: defaultDate, location: LOCATIONS[0].name })
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('pt-BR')
+  const groupedResults = useMemo(
+    () => groupResultsByDrawTime(results, selectedLocation, selectedDate),
+    [results, selectedLocation, selectedDate]
+  )
+
+  const handleSearch = () => {
+    load({ date: selectedDate, location: selectedLocation })
   }
 
   return (
@@ -87,7 +95,12 @@ export default function ResultadosPage() {
                     </select>
                   </div>
                   <div className="flex items-end">
-                    <button className="w-full rounded-lg bg-blue px-6 py-2 font-semibold text-white hover:bg-blue-scale-70 transition-colors md:w-auto">
+                    <button
+                      onClick={handleSearch}
+                      className="w-full rounded-lg bg-blue px-6 py-2 font-semibold text-white hover:bg-blue-scale-70 transition-colors md:w-auto disabled:opacity-70"
+                      disabled={loading}
+                      type="button"
+                    >
                       Buscar
                     </button>
                   </div>
@@ -97,12 +110,27 @@ export default function ResultadosPage() {
                   * Todos os resultados seguem o horário de Brasília (GMT-3).
                 </p>
 
-                {/* Results Table */}
-                <ResultsTable
-                  date={formatDate(selectedDate)}
-                  location={selectedLocation}
-                  drawTime="PT-RIO 9h20"
-                />
+                {/* Resultados por horário */}
+                {loading && <div className="py-6 text-gray-600">Carregando resultados...</div>}
+
+                {!loading && groupedResults.length === 0 && (
+                  <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-sm text-gray-600">
+                    Nenhum resultado encontrado para o filtro selecionado.
+                  </div>
+                )}
+
+                {!loading &&
+                  groupedResults.map((group) => (
+                    <div key={`${group.drawTime}-${group.dateLabel}`} className="mb-6 last:mb-0">
+                      <ResultsTable
+                        date={group.dateLabel || formatDateLabel(selectedDate)}
+                        location={group.locationLabel}
+                        drawTime={group.drawTime}
+                        results={group.rows}
+                        fallbackToSample={false}
+                      />
+                    </div>
+                  ))}
               </>
             )}
 

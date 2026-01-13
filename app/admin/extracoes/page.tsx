@@ -5,8 +5,12 @@ import { useEffect, useState } from 'react'
 interface Extracao {
   id: number
   name: string
-  active: boolean
+  realCloseTime?: string
+  closeTime: string
   time: string
+  active: boolean
+  max: number
+  days: string
 }
 
 export default function ExtracoesPage() {
@@ -54,27 +58,35 @@ export default function ExtracoesPage() {
         <table className="w-full">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nome</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Horário</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ações</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Extração</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Real Close</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Close Time</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Máx</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dias</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {extracoes.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                <td colSpan={8} className="px-6 py-4 text-center text-gray-500">
                   Nenhuma extração cadastrada
                 </td>
               </tr>
             ) : (
               extracoes.map((extracao) => (
                 <tr key={extracao.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{extracao.id}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{extracao.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{extracao.time}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{extracao.id}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{extracao.name}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                    {extracao.realCloseTime || '—'}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{extracao.closeTime}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{extracao.max}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{extracao.days}</td>
+                  <td className="px-4 py-3 whitespace-nowrap">
                     <button
                       onClick={() => toggleActive(extracao.id, extracao.active)}
                       className={`px-3 py-1 rounded-full text-xs font-semibold ${
@@ -86,7 +98,7 @@ export default function ExtracoesPage() {
                       {extracao.active ? 'Ativa' : 'Inativa'}
                     </button>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
                     <button
                       onClick={() => toggleActive(extracao.id, extracao.active)}
                       className="text-blue hover:text-blue-700"

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ResultadosResponse, ResultadoItem } from '@/types/resultados'
 import { SAMPLE_RESULTS } from '@/data/results'
+import { toIsoDate } from '@/lib/resultados-helpers'
 
 const SOURCE_URL = process.env.BICHO_CERTO_API ?? 'https://okgkgswwkk8ows0csow0c4gg.agenciamidas.com/api/resultados'
 
@@ -16,6 +17,21 @@ function normalizeResults(raw: any[]): ResultadoItem[] {
   }))
 }
 
+function matchesDateFilter(value: string | undefined, filter: string) {
+  if (!filter) return true
+  if (!value) return false
+
+  const isoValue = toIsoDate(value)
+  const isoFilter = toIsoDate(filter)
+
+  return (
+    value.includes(filter) ||
+    isoValue.startsWith(isoFilter) ||
+    isoFilter.startsWith(isoValue) ||
+    value.includes(isoFilter)
+  )
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const dateFilter = searchParams.get('date')
@@ -29,7 +45,7 @@ export async function GET(req: NextRequest) {
     let results = normalizeResults(rawResults)
 
     if (dateFilter) {
-      results = results.filter((r) => r.date?.includes(dateFilter) || r.date?.startsWith(dateFilter))
+      results = results.filter((r) => matchesDateFilter(r.date, dateFilter))
     }
     if (locationFilter) {
       const lf = locationFilter.toLowerCase()

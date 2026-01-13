@@ -4,6 +4,7 @@ export interface ResultadoItem {
   grupo: string
   animal: string
   drawTime?: string
+  loteria?: string
   location?: string
   date?: string
   estado?: string

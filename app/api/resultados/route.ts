@@ -6,6 +6,61 @@ const RAW_SOURCE =
   process.env.BICHO_CERTO_API ?? 'https://okgkgswwkk8ows0csow0c4gg.agenciamidas.com/api/resultados'
 const SOURCE_ROOT = RAW_SOURCE.replace(/\/api\/resultados$/, '')
 
+const LOTERIA_UF_MAP: Record<string, string> = {
+  'pt rio de janeiro': 'RJ',
+  'pt-rio de janeiro': 'RJ',
+  'pt rio': 'RJ',
+  'pt-rio': 'RJ',
+  'mpt-rio': 'RJ',
+  'mpt rio': 'RJ',
+  'pt-sp/bandeirantes': 'SP',
+  'pt sp': 'SP',
+  'pt-sp': 'SP',
+  'pt sp bandeirantes': 'SP',
+  bandeirantes: 'SP',
+  'pt bahia': 'BA',
+  'pt-ba': 'BA',
+  'maluca bahia': 'BA',
+  'pt paraiba/lotep': 'PB',
+  'pt paraiba': 'PB',
+  'pt paraíba': 'PB',
+  'pt-pb': 'PB',
+  lotep: 'PB',
+  'pt goias': 'GO',
+  'pt goiás': 'GO',
+  'look goias': 'GO',
+  'look goiás': 'GO',
+  look: 'GO',
+  'pt ceara': 'CE',
+  'pt ceará': 'CE',
+  lotece: 'CE',
+  'pt minas gerais': 'MG',
+  'pt minas': 'MG',
+  'pt parana': 'PR',
+  'pt paraná': 'PR',
+  'pt santa catarina': 'SC',
+  'pt rio grande do sul': 'RS',
+  'pt rs': 'RS',
+  'loteria nacional': 'BR',
+  nacional: 'BR',
+  'loteria federal': 'BR',
+  federal: 'BR',
+  'para todos': 'BR',
+}
+
+const EXTRACAO_UF_MAP: Record<string, string> = {
+  lotece: 'CE',
+  lotep: 'PB',
+  look: 'GO',
+  'para todos': 'BR',
+  'pt rio': 'RJ',
+  nacional: 'BR',
+  'pt bahia': 'BA',
+  federal: 'BR',
+  'pt sp': 'SP',
+  'pt sp (band)': 'SP',
+}
+
 const UF_ALIASES: Record<string, string> = {
   rj: 'RJ',
   'rio de janeiro': 'RJ',
@@ -71,6 +126,17 @@ function buildUrl(uf?: string) {
   return `${SOURCE_ROOT}/api/resultados`
 }
 
+function inferUfFromName(name?: string | null) {
+  if (!name) return undefined
+  const key = normalizeText(name)
+  return (
+    UF_ALIASES[key] ||
+    LOTERIA_UF_MAP[key] ||
+    EXTRACAO_UF_MAP[key] ||
+    (key.length === 2 ? key.toUpperCase() : undefined)
+  )
+}
+
 function normalizeResults(raw: any[]): ResultadoItem[] {
   return raw.map((r: any, idx: number) => ({
     position: r.position || r.premio || `${idx + 1}°`,
@@ -78,9 +144,10 @@ function normalizeResults(raw: any[]): ResultadoItem[] {
     grupo: r.grupo || r.grupoNumero || '',
     animal: r.animal || r.nomeAnimal || '',
     drawTime: r.horario || r.drawTime || r.concurso || '',
+    loteria: r.loteria || r.nomeLoteria || r.concurso || r.horario || '',
     location: r.local || r.estado || r.cidade || r.uf || '',
     date: r.data || r.date || r.dia || '',
-    estado: r.estado || undefined,
+    estado: r.estado || inferUfFromName(r.estado) || inferUfFromName(r.loteria) || undefined,
   }))
 }
 
@@ -129,12 +196,13 @@ export async function GET(req: NextRequest) {
       results = results.map((r) => ({
         ...r,
         location: r.location || r.estado || locationFilter || uf,
-        estado: r.estado || uf,
+        estado: r.estado || inferUfFromName(r.loteria) || inferUfFromName(r.location) || uf,
       }))
     } else if (locationFilter) {
       results = results.map((r) => ({
         ...r,
         location: r.location || r.estado || locationFilter,
+        estado: r.estado || inferUfFromName(r.loteria) || inferUfFromName(r.location) || undefined,
       }))
     }
 

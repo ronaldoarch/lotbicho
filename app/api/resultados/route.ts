@@ -125,13 +125,12 @@ export async function GET(req: NextRequest) {
       results = results.filter((r) => matchesDateFilter(r.date, dateFilter))
     }
     if (uf) {
-      results = results
-        .filter((r) => (r.estado || r.location || '').toUpperCase().includes(uf))
-        .map((r) => ({
-          ...r,
-          location: r.location || r.estado || locationFilter || uf,
-          estado: r.estado || uf,
-        }))
+      // Endpoint /estado/<UF> já retorna filtrado; apenas normalizamos os campos.
+      results = results.map((r) => ({
+        ...r,
+        location: r.location || r.estado || locationFilter || uf,
+        estado: r.estado || uf,
+      }))
     } else if (locationFilter) {
       results = results.map((r) => ({
         ...r,

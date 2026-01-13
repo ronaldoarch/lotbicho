@@ -2,6 +2,25 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ResultadosResponse, ResultadoItem } from '@/types/resultados'
 import { toIsoDate } from '@/lib/resultados-helpers'
 
+const LOCATION_MAP: Record<string, string[]> = {
+  'rio de janeiro': ['pt rio', 'pt-rio', 'pt-rio 9h20', 'pt-rio 11h20', 'rio de janeiro', 'rj'],
+  'sao paulo': ['pt sp', 'pt-sp', 'pt sao paulo', 'pt são paulo', 'sao paulo', 'sp'],
+  bahia: ['pt bahia', 'pt-ba', 'ptba', 'bahia', 'ba'],
+  goias: ['look', 'look goias', 'look goiás', 'goias', 'goiás', 'go'],
+  'distrito federal': ['df', 'distrito federal', 'brasilia', 'brasília'],
+  brasilia: ['df', 'distrito federal', 'brasilia', 'brasília'],
+  nacional: ['nacional'],
+  federal: ['federal', 'loteria federal'],
+  'para todos': ['para todos', 'para-todos'],
+}
+
+function normalizeText(value: string) {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
+
 const SOURCE_URL = process.env.BICHO_CERTO_API ?? 'https://okgkgswwkk8ows0csow0c4gg.agenciamidas.com/api/resultados'
 
 function normalizeResults(raw: any[]): ResultadoItem[] {
@@ -47,8 +66,17 @@ export async function GET(req: NextRequest) {
       results = results.filter((r) => matchesDateFilter(r.date, dateFilter))
     }
     if (locationFilter) {
-      const lf = locationFilter.toLowerCase()
-      results = results.filter((r) => (r.location || '').toLowerCase().includes(lf))
+      const lf = normalizeText(locationFilter)
+      const aliases = LOCATION_MAP[lf] ?? [lf]
+      results = results
+        .filter((r) => {
+          const combined = normalizeText(`${r.location || ''} ${r.drawTime || ''}`)
+          return aliases.some((alias) => combined.includes(alias))
+        })
+        .map((r) => ({
+          ...r,
+          location: r.location || locationFilter,
+        }))
     }
 
     const payload: ResultadosResponse = {

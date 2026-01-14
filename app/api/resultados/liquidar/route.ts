@@ -77,22 +77,54 @@ function jaPassouHorarioApuracao(
     return true
   }
   
-  // Criar data/hora de apuração no dia do concurso
-  // IMPORTANTE: Usar UTC ou timezone local consistentemente
-  const dataApuracao = new Date(dataConcurso)
-  dataApuracao.setHours(horas, minutos, 0, 0)
+  // IMPORTANTE: Usar horário de Brasília (GMT-3) para comparação
+  // O servidor pode estar em UTC, mas os horários das extrações são em horário de Brasília
+  // Obter horário atual em Brasília
+  const agoraUTC = new Date()
+  const agoraBrasiliaStr = agoraUTC.toLocaleString('en-US', { 
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  })
+  // Converter string "MM/DD/YYYY, HH:MM:SS" para Date
+  const [dataPart, horaPart] = agoraBrasiliaStr.split(', ')
+  const [mes, dia, ano] = dataPart.split('/')
+  const [horaAtual, minutoAtual, segundoAtual] = horaPart.split(':')
+  const agora = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia), parseInt(horaAtual), parseInt(minutoAtual), parseInt(segundoAtual))
   
-  // Se a data do concurso for hoje, verificar se já passou
-  const agora = new Date()
+  // Obter data do concurso em horário de Brasília
+  const dataConcursoBrasiliaStr = dataConcurso.toLocaleString('en-US', { 
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  })
+  const [mesConc, diaConc, anoConc] = dataConcursoBrasiliaStr.split('/')
+  
+  // Criar data/hora de apuração no dia do concurso usando horário de Brasília
+  const dataApuracao = new Date(parseInt(anoConc), parseInt(mesConc) - 1, parseInt(diaConc), horas, minutos, 0)
+  
+  // Criar datas para comparação de dia (sem hora) em horário de Brasília
   const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate())
-  const dataConcursoSemHora = new Date(dataConcurso.getFullYear(), dataConcurso.getMonth(), dataConcurso.getDate())
+  const dataConcursoSemHora = new Date(parseInt(anoConc), parseInt(mesConc) - 1, parseInt(diaConc))
   
   // Se for hoje, usar hora atual; se for passado, já pode liquidar; se for futuro, não pode
   if (dataConcursoSemHora.getTime() === hoje.getTime()) {
     // Mesmo dia: verificar se já passou o horário
     const jaPassou = agora >= dataApuracao
+    
+    // Formatar horários para log (horário de Brasília)
+    const horaApuracao = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}`
+    const horaAtual = `${agora.getHours().toString().padStart(2, '0')}:${agora.getMinutes().toString().padStart(2, '0')}:${agora.getSeconds().toString().padStart(2, '0')}`
+    
     console.log(`   ⏰ Verificação de horário: ${extracao.name} (ID ${extracao.id}) - closeTime: ${extracao.closeTime}`)
-    console.log(`      Data apuração: ${dataApuracao.toLocaleString('pt-BR')}, Agora: ${agora.toLocaleString('pt-BR')}`)
+    console.log(`      Data apuração: ${dataConcursoSemHora.toLocaleDateString('pt-BR')} ${horaApuracao} (Brasília)`)
+    console.log(`      Agora: ${agora.toLocaleDateString('pt-BR')} ${horaAtual} (Brasília)`)
     console.log(`      ${jaPassou ? '✅ Já passou' : '⏸️  Ainda não passou'} o horário de apuração`)
     return jaPassou
   } else if (dataConcursoSemHora.getTime() < hoje.getTime()) {

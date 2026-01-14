@@ -225,6 +225,23 @@ export function calcularValorPorPalpite(
   }
 }
 
+/**
+ * Calcula o valor total da aposta baseado no tipo de divisão.
+ * - "each": valor digitado é por palpite, então total = valor * qtd_palpites
+ * - "all": valor digitado é o total, então total = valor
+ */
+export function calcularValorTotalAposta(
+  valorDigitado: number,
+  qtdPalpites: number,
+  divisaoTipo: DivisionType
+): number {
+  if (divisaoTipo === 'each') {
+    return valorDigitado * qtdPalpites
+  } else {
+    return valorDigitado
+  }
+}
+
 // ============================================================================
 // CÁLCULO POR MODALIDADE
 // ============================================================================

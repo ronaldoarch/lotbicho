@@ -6,6 +6,7 @@ import {
   gerarResultadoInstantaneo,
   conferirPalpite,
   calcularValorPorPalpite,
+  calcularValorTotalAposta,
   type ModalityType,
 } from '@/lib/bet-rules-engine'
 import { ANIMALS } from '@/data/animals'
@@ -64,9 +65,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Valor inválido' }, { status: 400 })
     }
 
-    const valorNum = Number(valor)
+    const valorDigitado = Number(valor)
     const useBonusFlag = Boolean(useBonus)
     const isInstant = detalhes && typeof detalhes === 'object' && 'betData' in detalhes && (detalhes as any).betData?.instant === true
+
+    // Calcular valor total da aposta baseado na divisão
+    let valorTotalAposta = valorDigitado
+    if (detalhes && typeof detalhes === 'object' && 'betData' in detalhes) {
+      const betData = (detalhes as any).betData as {
+        animalBets?: number[][]
+        numberBets?: string[]
+        divisionType?: 'all' | 'each'
+      }
+      const qtdPalpites = betData.animalBets?.length || betData.numberBets?.length || 0
+      const divisionType = betData.divisionType || 'all'
+      valorTotalAposta = calcularValorTotalAposta(valorDigitado, qtdPalpites, divisionType)
+    }
 
     const result = await prisma.$transaction(async (tx) => {
       const usuario = await tx.usuario.findUnique({ where: { id: user.id } })
@@ -76,14 +90,14 @@ export async function POST(request: Request) {
       const saldoDisponivel = usuario.saldo
       const totalDisponivel = saldoDisponivel + bonusDisponivel
 
-      if (valorNum > totalDisponivel) {
+      if (valorTotalAposta > totalDisponivel) {
         throw new Error('Saldo insuficiente')
       }
 
       // Debita primeiro do saldo, depois do bônus (se permitido)
       let debitarBonus = 0
-      let debitarSaldo = Math.min(saldoDisponivel, valorNum)
-      const restante = valorNum - debitarSaldo
+      let debitarSaldo = Math.min(saldoDisponivel, valorTotalAposta)
+      const restante = valorTotalAposta - debitarSaldo
       if (restante > 0) {
         if (bonusDisponivel <= 0) throw new Error('Saldo insuficiente (bônus indisponível)')
         debitarBonus = restante
@@ -140,7 +154,8 @@ export async function POST(request: Request) {
         resultadoInstantaneo = gerarResultadoInstantaneo(Math.max(pos_to, 7))
 
         // Calcular valor por palpite
-        const qtdPalpites = betData.animalBets.length
+        const numberBets = (detalhes as any).numberBets || []
+        const qtdPalpites = betData.animalBets.length || numberBets.length || 0
         const valorPorPalpite = calcularValorPorPalpite(
           betData.amount,
           qtdPalpites,
@@ -148,39 +163,49 @@ export async function POST(request: Request) {
         )
 
         // Conferir cada palpite
-        for (const animalBet of betData.animalBets) {
-          const grupos = animalBet.map((animalId) => {
-            // Encontrar o grupo do animal
-            const animal = ANIMALS.find((a) => a.id === animalId)
-            if (!animal) {
-              throw new Error(`Animal não encontrado: ${animalId}`)
-            }
-            return animal.group
-          })
+        if (numberBets.length > 0) {
+          // Modalidades numéricas
+          for (const numero of numberBets) {
+            const palpiteData: { numero: string } = { numero }
+            
+            const conferencia = conferirPalpite(
+              resultadoInstantaneo,
+              modalityType,
+              palpiteData,
+              pos_from,
+              pos_to,
+              valorPorPalpite,
+              betData.divisionType
+            )
 
-          // Para modalidades de número, precisamos do número, não dos grupos
-          let palpiteData: { grupos?: number[]; numero?: string } = {}
-          
-          if (modalityType.includes('GRUPO') || modalityType === 'PASSE' || modalityType === 'PASSE_VAI_E_VEM') {
-            palpiteData = { grupos }
-          } else {
-            // Para modalidades de número, precisamos converter grupos em números
-            // Por enquanto, vamos usar o primeiro grupo como exemplo
-            // TODO: Implementar entrada de números para modalidades numéricas
-            throw new Error('Modalidades numéricas ainda não suportadas para instantânea')
+            premioTotal += conferencia.totalPrize
           }
+        } else {
+          // Modalidades de grupo
+          for (const animalBet of betData.animalBets) {
+            const grupos = animalBet.map((animalId) => {
+              // Encontrar o grupo do animal
+              const animal = ANIMALS.find((a) => a.id === animalId)
+              if (!animal) {
+                throw new Error(`Animal não encontrado: ${animalId}`)
+              }
+              return animal.group
+            })
 
-          const conferencia = conferirPalpite(
-            resultadoInstantaneo,
-            modalityType,
-            palpiteData,
-            pos_from,
-            pos_to,
-            valorPorPalpite,
-            betData.divisionType
-          )
+            const palpiteData: { grupos: number[] } = { grupos }
 
-          premioTotal += conferencia.totalPrize
+            const conferencia = conferirPalpite(
+              resultadoInstantaneo,
+              modalityType,
+              palpiteData,
+              pos_from,
+              pos_to,
+              valorPorPalpite,
+              betData.divisionType
+            )
+
+            premioTotal += conferencia.totalPrize
+          }
         }
 
         // Atualizar saldo: debita aposta e credita prêmio
@@ -192,7 +217,7 @@ export async function POST(request: Request) {
           data: {
             saldo: saldoFinal,
             bonus: bonusFinal,
-            rolloverAtual: usuario.rolloverAtual + valorNum,
+            rolloverAtual: usuario.rolloverAtual + valorTotalAposta,
           },
         })
       } else {
@@ -202,7 +227,7 @@ export async function POST(request: Request) {
           data: {
             saldo: usuario.saldo - debitarSaldo,
             bonus: usuario.bonus - debitarBonus,
-            rolloverAtual: usuario.rolloverAtual + valorNum,
+            rolloverAtual: usuario.rolloverAtual + valorTotalAposta,
           },
         })
       }
@@ -217,13 +242,15 @@ export async function POST(request: Request) {
           dataConcurso: dataConcurso ? new Date(dataConcurso) : null,
           modalidade: modalidade || null,
           aposta: aposta || null,
-          valor: valorNum,
+          valor: valorTotalAposta,
           retornoPrevisto: premioTotal > 0 ? premioTotal : (retornoPrevisto ? Number(retornoPrevisto) : 0),
           status: isInstant ? 'liquidado' : (status || 'pendente'),
           detalhes: {
             ...(detalhes && typeof detalhes === 'object' ? detalhes : {}),
             resultadoInstantaneo: resultadoInstantaneo,
             premioTotal,
+            valorDigitado,
+            valorTotalAposta,
           },
         },
       })

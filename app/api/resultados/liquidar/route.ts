@@ -12,7 +12,7 @@ import { ANIMALS } from '@/data/animals'
 import { ResultadoItem } from '@/types/resultados'
 
 // Configurar timeout maior para operações longas
-export const maxDuration = 60 // 60 segundos
+export const maxDuration = 120 // 120 segundos (2 minutos) para processar muitas apostas
 export const dynamic = 'force-dynamic'
 
 /**
@@ -138,17 +138,32 @@ export async function POST(request: NextRequest) {
       console.log(`   - Modalidade: ${aposta.modalidade || 'N/A'}`)
     })
 
-    // Buscar resultados oficiais (com timeout)
-    const resultadosResponse = await fetch(
-      `${process.env.BICHO_CERTO_API ?? 'https://okgkgswwkk8ows0csow0c4gg.agenciamidas.com/api/resultados'}`,
-      { 
-        cache: 'no-store',
-        signal: AbortSignal.timeout(30000) // 30 segundos timeout
-      }
-    )
+    // Buscar resultados oficiais (com timeout maior)
+    let resultadosResponse
+    try {
+      resultadosResponse = await fetch(
+        `${process.env.BICHO_CERTO_API ?? 'https://okgkgswwkk8ows0csow0c4gg.agenciamidas.com/api/resultados'}`,
+        { 
+          cache: 'no-store',
+          signal: AbortSignal.timeout(45000) // 45 segundos timeout
+        }
+      )
 
-    if (!resultadosResponse.ok) {
-      throw new Error('Erro ao buscar resultados oficiais')
+      if (!resultadosResponse.ok) {
+        throw new Error(`Erro ao buscar resultados oficiais: ${resultadosResponse.status}`)
+      }
+    } catch (error) {
+      if (error instanceof Error && error.name === 'TimeoutError') {
+        console.error('⏱️ Timeout ao buscar resultados oficiais')
+        return NextResponse.json({
+          error: 'Timeout ao buscar resultados oficiais',
+          message: 'A API de resultados demorou muito para responder. Tente novamente.',
+          processadas: 0,
+          liquidadas: 0,
+          premioTotal: 0,
+        }, { status: 504 })
+      }
+      throw error
     }
 
     const resultadosData = await resultadosResponse.json()
@@ -202,17 +217,21 @@ export async function POST(request: NextRequest) {
       try {
         // Filtrar resultados por loteria/horário/data da aposta
         // Se loteria é um ID numérico, buscar o nome da extração primeiro
+        // Cache de extrações para evitar múltiplas queries
         let loteriaNome = aposta.loteria
         if (aposta.loteria && /^\d+$/.test(aposta.loteria)) {
           // É um ID numérico, buscar diretamente do banco de dados
           try {
+            const extracaoId = parseInt(aposta.loteria)
             const extracao = await prisma.extracao.findUnique({
-              where: { id: parseInt(aposta.loteria) },
+              where: { id: extracaoId },
               select: { name: true },
             })
             if (extracao?.name) {
               loteriaNome = extracao.name
               console.log(`   - Loteria ID ${aposta.loteria} → Nome: "${loteriaNome}"`)
+            } else {
+              console.log(`   - Extração ID ${aposta.loteria} não encontrada no banco`)
             }
           } catch (error) {
             console.log(`   - Erro ao buscar extração por ID: ${error}`)

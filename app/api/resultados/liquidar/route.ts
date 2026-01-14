@@ -252,7 +252,7 @@ export async function POST(request: NextRequest) {
         if (aposta.loteria && /^\d+$/.test(aposta.loteria)) {
           // É um ID numérico, buscar da lista estática de extrações
           try {
-            const { extracoes } = await import('@/app/api/admin/extracoes/route')
+            const { extracoes } = await import('@/data/extracoes')
             const extracaoId = parseInt(aposta.loteria)
             
             // Buscar extração da lista estática

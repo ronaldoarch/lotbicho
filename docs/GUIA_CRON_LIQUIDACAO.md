@@ -104,7 +104,14 @@ O cron job verifica se já passou o `closeTime` antes de liquidar cada aposta.
 
 ```
 POST /api/resultados/liquidar
+GET  /api/resultados/liquidar  # Retorna estatísticas
 ```
+
+### Configurações Técnicas
+
+- **maxDuration**: 120 segundos (2 minutos)
+- **dynamic**: `force-dynamic` (não cacheia)
+- **Fuso horário**: Horário de Brasília (GMT-3) para verificação de `closeTime`
 
 ### Requisição (Body Opcional)
 
@@ -113,11 +120,16 @@ POST /api/resultados/liquidar
   "loteria": "16",           // Opcional: filtrar por loteria específica
   "dataConcurso": "2026-01-14",  // Opcional: filtrar por data
   "horario": "14:20",        // Opcional: filtrar por horário
-  "usarMonitor": false       // Opcional: tentar usar sistema do monitor primeiro
+  "usarMonitor": false       // Opcional: tentar usar sistema do monitor primeiro (default: false)
 }
 ```
 
 **Nota**: Se não enviar parâmetros, processa todas as apostas pendentes.
+
+**Estratégia de Liquidação**:
+- Se `usarMonitor: true`: Tenta usar endpoint do monitor primeiro (`${BICHO_CERTO_API}/api/resultados/liquidar`)
+- Se monitor não disponível ou falhar: Usa implementação própria automaticamente
+- Se `usarMonitor: false` ou não fornecido: Usa apenas implementação própria
 
 ### Resposta de Sucesso
 
@@ -127,6 +139,7 @@ POST /api/resultados/liquidar
   "processadas": 10,
   "liquidadas": 3,
   "premioTotal": 150.00,
+  "fonte": "proprio",  // ou "monitor" se usado monitor
   "apostas": [
     {
       "id": 1,
@@ -136,6 +149,14 @@ POST /api/resultados/liquidar
   ]
 }
 ```
+
+**Campos da Resposta**:
+- `message`: Mensagem de status
+- `processadas`: Quantidade de apostas processadas
+- `liquidadas`: Quantidade de apostas liquidadas (com prêmio)
+- `premioTotal`: Valor total de prêmios creditados
+- `fonte`: `"monitor"` se usado monitor, `"proprio"` se usado implementação própria
+- `apostas`: Array com detalhes das apostas processadas (opcional)
 
 ### Resposta de Erro
 
@@ -147,11 +168,12 @@ POST /api/resultados/liquidar
 }
 ```
 
-### Timeout
+### Timeout e Configurações
 
-- **Timeout da requisição**: 30 segundos
-- **Timeout interno**: 120 segundos (2 minutos)
-- **Timeout de busca de resultados**: 60 segundos por tentativa (2 tentativas)
+- **maxDuration**: 120 segundos (2 minutos) - tempo máximo para processar muitas apostas
+- **Timeout de busca de resultados**: 30 segundos por tentativa
+- **Timeout do script cron**: 60 segundos (`--max-time 60` no curl)
+- **Fuso horário**: Horário de Brasília (GMT-3) - usado para verificação de `closeTime`
 
 ---
 
@@ -326,12 +348,12 @@ cron.schedule('*/10 * * * *', async () => {
    
    **Request Settings**:
    - **Request Method**: `POST`
-   - **Request Body**: `{}`
+   - **Request Body**: `{"usarMonitor": true}` (tenta monitor primeiro, fallback automático)
    - **Request Headers**: 
      ```
      Content-Type: application/json
      ```
-   - **Timeout**: `90` (segundos)
+   - **Timeout**: `90` (segundos) - recomendado mínimo 90s devido ao maxDuration de 120s
    
    **Notifications**:
    - Marque "Send email on failure" (opcional)
@@ -367,6 +389,9 @@ O endpoint gera logs detalhados:
    - Data Concurso: 14/01/2026
    - Modalidade: Dupla de Grupo
 
+🔄 Buscando resultados via API interna...
+✅ Resultados obtidos com sucesso via API interna
+
 ⏰ Verificação de horário: PT SP (ID 46) - closeTime: 20:15
    Data apuração: 14/01/2026 20:15 (Brasília)
    Agora: 14/01/2026 19:57 (Brasília)
@@ -376,7 +401,28 @@ O endpoint gera logs detalhados:
    Processadas: 6
    Liquidadas: 3
    Premio Total: R$ 150.00
+   Fonte: proprio
 ```
+
+### Logs do Script Cron
+
+O script `liquidar.sh` gera logs em arquivo separado:
+
+```
+[2026-01-14 20:00:00] ==========================================
+[2026-01-14 20:00:00] Iniciando liquidação automática...
+[2026-01-14 20:00:05] ✅ Liquidação concluída com sucesso
+[2026-01-14 20:00:05]    Processadas: 6
+[2026-01-14 20:00:05]    Liquidadas: 3
+[2026-01-14 20:00:05]    Prêmio total: R$ 150.00
+[2026-01-14 20:00:05]    Fonte: proprio
+[2026-01-14 20:00:05] Finalizando liquidação automática.
+[2026-01-14 20:00:05] ==========================================
+```
+
+**Localização dos logs**:
+- Script cron: `$LOG_DIR/liquidacao-YYYYMMDD.log` (ex: `scripts/logs/liquidacao-20260114.log`)
+- Servidor: Logs do Next.js/PM2/Docker conforme configuração
 
 ### Verificar Status do Cron Job
 
@@ -433,10 +479,12 @@ Resposta:
 **Sintoma**: Cron job falha com timeout
 
 **Soluções**:
-1. Aumente o timeout no cron-job.org para 90-120 segundos
+1. Aumente o timeout no cron-job.org para **mínimo 90 segundos** (recomendado: 120s)
+   - O endpoint tem `maxDuration = 120` segundos
+   - O script cron usa `--max-time 60`, mas serviços externos devem ter timeout maior
 2. Verifique se a API de resultados externa está respondendo
 3. Verifique logs do servidor para identificar gargalos
-4. Considere aumentar `maxDuration` no endpoint
+4. Se necessário, ajuste `maxDuration` no arquivo `app/api/resultados/liquidar/route.ts`
 
 ### Problema 3: Apostas Não Estão Sendo Liquidadas
 
@@ -474,10 +522,20 @@ Resposta:
 **Sintoma**: "Erro ao buscar resultados oficiais"
 
 **Soluções**:
-1. Verifique conectividade com API externa
-2. Verifique variável de ambiente `BICHO_CERTO_API`
-3. Verifique timeout da requisição
-4. Verifique logs para detalhes do erro
+1. **Estratégia de busca**:
+   - Primeiro tenta API interna (`/api/resultados`) - timeout 30s
+   - Se falhar, tenta API externa (`BICHO_CERTO_API`) - timeout 30s
+   - Verifique logs para ver qual tentativa falhou
+2. Verifique variável de ambiente `BICHO_CERTO_API`:
+   ```bash
+   echo $BICHO_CERTO_API
+   # Default: https://okgkgswwkk8ows0csow0c4gg.agenciamidas.com/api/resultados
+   ```
+3. Verifique timeout da requisição (30 segundos por tentativa)
+4. Verifique logs para detalhes do erro:
+   - `🔄 Buscando resultados via API interna...`
+   - `🔄 Tentando API externa como fallback...`
+   - `❌ Erro ao buscar resultados via API interna:`
 
 ---
 
@@ -488,15 +546,17 @@ Resposta:
 **Configuração Atual**: A cada 5 minutos
 
 - **Frequência atual**: `*/5 * * * *` (a cada 5 minutos)
-- **Muito frequente** (1-2 min): Pode sobrecarregar o servidor
+- **Muito frequente** (1-2 min): Pode sobrecarregar o servidor e API externa
 - **Muito espaçado** (30+ min): Usuários esperam muito pelos resultados
 
 **Cron Expression**:
 ```
-*/5 * * * *   # A cada 5 minutos (configuração atual)
-*/10 * * * *  # A cada 10 minutos (alternativa)
-*/15 * * * *  # A cada 15 minutos (alternativa)
+*/5 * * * *   # A cada 5 minutos (configuração atual recomendada)
+*/10 * * * *  # A cada 10 minutos (alternativa mais conservadora)
+*/15 * * * *  # A cada 15 minutos (alternativa para servidores com menos recursos)
 ```
+
+**⚠️ Importante**: Com `maxDuration = 120s`, execuções muito frequentes podem sobrepor se uma execução demorar mais que 5 minutos.
 
 ### 2. Horários de Execução
 
@@ -504,16 +564,19 @@ Resposta:
 
 - **Horário**: 24 horas (executa continuamente)
 - **Frequência**: A cada 5 minutos
+- **Verificação de horário**: Sistema verifica `closeTime` antes de liquidar cada aposta
 
 **Cron Expression**:
 ```
 */5 * * * *  # A cada 5 minutos (configuração atual)
 ```
 
-**Alternativa com horários específicos**:
+**Alternativa com horários específicos** (se quiser economizar recursos):
 ```
 */5 8-23 * * *  # A cada 5 minutos das 8h às 23h
 ```
+
+**Nota**: Mesmo executando 24h, o sistema só liquida apostas após o `closeTime` ter passado, então é seguro executar continuamente.
 
 ### 3. Monitoramento
 
@@ -544,12 +607,15 @@ Resposta:
 - [ ] Endpoint `/api/resultados/liquidar` está funcionando
 - [ ] URL do endpoint está acessível publicamente (HTTPS)
 - [ ] Cron job criado no serviço externo ou servidor
-- [ ] Frequência configurada (5 minutos - configuração atual)
-- [ ] Timeout configurado (mínimo 90 segundos)
+- [ ] Frequência configurada (`*/5 * * * *` - a cada 5 minutos)
+- [ ] Request Body configurado: `{"usarMonitor": true}`
+- [ ] Timeout configurado (mínimo 90 segundos, recomendado 120s)
+- [ ] Headers configurados: `Content-Type: application/json`
 - [ ] Notificações configuradas (opcional)
 - [ ] Teste manual executado com sucesso
-- [ ] Logs sendo monitorados
+- [ ] Logs sendo monitorados (servidor e script cron)
 - [ ] Variáveis de ambiente configuradas (`BICHO_CERTO_API`, etc.)
+- [ ] Verificado que sistema usa horário de Brasília (GMT-3)
 
 ---
 

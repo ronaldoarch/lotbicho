@@ -249,7 +249,8 @@ export async function POST(request: NextRequest) {
         const betData = detalhes.betData as {
           modality: string | null
           modalityName?: string | null
-          animalBets: number[][]
+          animalBets?: number[][]
+          numberBets?: string[]
           position: string | null
           amount: number
           divisionType: 'all' | 'each'
@@ -261,7 +262,15 @@ export async function POST(request: NextRequest) {
         const { pos_from, pos_to } = parsePosition(betData.position)
 
         // Calcular valor por palpite
-        const qtdPalpites = betData.animalBets.length
+        const numberBets = betData.numberBets || []
+        const animalBets = betData.animalBets || []
+        const qtdPalpites = animalBets.length || numberBets.length || 0
+        
+        if (qtdPalpites === 0) {
+          console.log(`Aposta ${aposta.id} não tem palpites válidos`)
+          continue
+        }
+
         const valorPorPalpite = calcularValorPorPalpite(
           betData.amount,
           qtdPalpites,
@@ -271,41 +280,48 @@ export async function POST(request: NextRequest) {
         // Conferir cada palpite
         let premioTotalAposta = 0
 
-        for (const animalBet of betData.animalBets) {
-          const gruposApostados = animalBet.map((animalId) => {
-            const animal = ANIMALS.find((a) => a.id === animalId)
-            if (!animal) {
-              throw new Error(`Animal não encontrado: ${animalId}`)
-            }
-            return animal.group
-          })
+        // Processar modalidades numéricas
+        if (numberBets.length > 0) {
+          for (const numero of numberBets) {
+            const palpiteData: { numero: string } = { numero }
 
-          let palpiteData: { grupos?: number[]; numero?: string } = {}
+            const conferencia = conferirPalpite(
+              resultadoOficial,
+              modalityType,
+              palpiteData,
+              pos_from,
+              pos_to,
+              valorPorPalpite,
+              betData.divisionType
+            )
 
-          if (
-            modalityType.includes('GRUPO') ||
-            modalityType === 'PASSE' ||
-            modalityType === 'PASSE_VAI_E_VEM'
-          ) {
-            palpiteData = { grupos: gruposApostados }
-          } else {
-            // Para modalidades numéricas, precisaríamos do número apostado
-            // Por enquanto, pulamos modalidades numéricas
-            console.log(`Modalidade numérica ${modalityType} ainda não suportada na liquidação`)
-            continue
+            premioTotalAposta += conferencia.totalPrize
           }
+        } else {
+          // Processar modalidades de grupo
+          for (const animalBet of animalBets) {
+            const gruposApostados = animalBet.map((animalId) => {
+              const animal = ANIMALS.find((a) => a.id === animalId)
+              if (!animal) {
+                throw new Error(`Animal não encontrado: ${animalId}`)
+              }
+              return animal.group
+            })
 
-          const conferencia = conferirPalpite(
-            resultadoOficial,
-            modalityType,
-            palpiteData,
-            pos_from,
-            pos_to,
-            valorPorPalpite,
-            betData.divisionType
-          )
+            const palpiteData: { grupos: number[] } = { grupos: gruposApostados }
 
-          premioTotalAposta += conferencia.totalPrize
+            const conferencia = conferirPalpite(
+              resultadoOficial,
+              modalityType,
+              palpiteData,
+              pos_from,
+              pos_to,
+              valorPorPalpite,
+              betData.divisionType
+            )
+
+            premioTotalAposta += conferencia.totalPrize
+          }
         }
 
         // Atualizar aposta e saldo do usuário

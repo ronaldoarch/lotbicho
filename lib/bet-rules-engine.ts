@@ -710,6 +710,15 @@ export function gerarResultadoInstantaneo(qtdPremios: number = 7): InstantResult
 
 /**
  * Confere um palpite completo contra um resultado.
+ * 
+ * Lógica de Premiação:
+ * 1. Calcula unidades e valor unitário baseado na modalidade e posições
+ * 2. Confere quantos acertos o palpite teve contra o resultado oficial
+ * 3. Busca a odd (multiplicador) - tenta cotação dinâmica primeiro, depois tabela fixa
+ * 4. Calcula prêmio por unidade = odd × valor unitário
+ * 5. Calcula prêmio total = acertos × prêmio por unidade
+ * 
+ * @param modalityName - Nome da modalidade (ex: "Dupla de Grupo") para buscar cotação dinâmica
  */
 export function conferirPalpite(
   resultado: InstantResult,
@@ -721,7 +730,8 @@ export function conferirPalpite(
   pos_from: number,
   pos_to: number,
   valorPorPalpite: number,
-  divisaoTipo: DivisionType
+  divisaoTipo: DivisionType,
+  modalityName?: string
 ): {
   calculation: BetCalculation
   prize: PrizeCalculation
@@ -773,7 +783,8 @@ export function conferirPalpite(
   }
   
   // Buscar odd e calcular prêmio
-  const odd = buscarOdd(modalidade, pos_from, pos_to)
+  // Tenta usar cotação dinâmica se modalityName fornecido, senão usa tabela fixa
+  const odd = buscarOdd(modalidade, pos_from, pos_to, modalityName)
   const premioUnidade = calcularPremioUnidade(odd, calculation.unitValue)
   const totalPrize = calcularPremioPalpite(prize.hits, premioUnidade)
   

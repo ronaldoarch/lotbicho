@@ -292,7 +292,8 @@ export async function POST(request: NextRequest) {
               pos_from,
               pos_to,
               valorPorPalpite,
-              betData.divisionType
+              betData.divisionType,
+              betData.modalityName || undefined
             )
 
             premioTotalAposta += conferencia.totalPrize
@@ -317,7 +318,8 @@ export async function POST(request: NextRequest) {
               pos_from,
               pos_to,
               valorPorPalpite,
-              betData.divisionType
+              betData.divisionType,
+              betData.modalityName || undefined
             )
 
             premioTotalAposta += conferencia.totalPrize

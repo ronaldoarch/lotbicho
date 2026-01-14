@@ -254,13 +254,29 @@ export async function POST(request: NextRequest) {
             const extracaoId = parseInt(aposta.loteria)
             const extracao = await prisma.extracao.findUnique({
               where: { id: extracaoId },
-              select: { name: true },
+              select: { 
+                id: true,
+                name: true,
+                active: true,
+              },
             })
-            if (extracao?.name) {
-              loteriaNome = extracao.name
-              console.log(`   - Loteria ID ${aposta.loteria} → Nome: "${loteriaNome}"`)
+            
+            if (extracao) {
+              if (extracao.name) {
+                loteriaNome = extracao.name
+                console.log(`   - Loteria ID ${aposta.loteria} → Nome: "${loteriaNome}" (ativa: ${extracao.active})`)
+              } else {
+                console.log(`   - Extração ID ${aposta.loteria} encontrada mas sem nome`)
+                usarFiltroLoteria = false
+              }
             } else {
+              // Tentar buscar todas as extrações para debug
+              const todasExtracoes = await prisma.extracao.findMany({
+                select: { id: true, name: true },
+                take: 10,
+              })
               console.log(`   - Extração ID ${aposta.loteria} não encontrada no banco`)
+              console.log(`   - Extrações disponíveis (primeiras 10): ${todasExtracoes.map(e => `${e.id}:${e.name}`).join(', ')}`)
               console.log(`   - ⚠️ Pulando filtro de loteria (extração não encontrada)`)
               usarFiltroLoteria = false
             }

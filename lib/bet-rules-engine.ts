@@ -341,11 +341,21 @@ export function buscarCotacaoDinamica(modalityName: string): number | null {
     }
 
     // Extrair o número da string "1x R$ 16.00" -> 16
-    // Pode ser "1x R$ 16.00" ou "16x" ou "R$ 16.00"
-    // Procura pelo primeiro número que aparece (geralmente o multiplicador)
-    const match = modality.value.match(/(\d+(?:\.\d+)?)/)
-    if (match) {
-      return parseFloat(match[1])
+    // O formato é "1x R$ VALOR" onde VALOR é o multiplicador
+    // Extrair o valor após "R$" ou o último número grande encontrado
+    const rMatch = modality.value.match(/R\$\s*(\d+(?:\.\d+)?)/)
+    if (rMatch) {
+      return parseFloat(rMatch[1])
+    }
+    
+    // Fallback: procurar por números maiores que 10 (provavelmente o multiplicador)
+    const numbers = modality.value.match(/(\d+(?:\.\d+)?)/g)
+    if (numbers && numbers.length > 0) {
+      // Pegar o maior número encontrado (geralmente é o multiplicador)
+      const maxNumber = Math.max(...numbers.map(n => parseFloat(n)))
+      if (maxNumber >= 10) {
+        return maxNumber
+      }
     }
 
     return null

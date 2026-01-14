@@ -1,24 +1,46 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { ANIMALS } from '@/data/animals'
-import { Animal } from '@/types/bet'
 
 interface AnimalSelectionProps {
-  selectedAnimals: number[]
+  animalBets: number[][]
   requiredPerBet: number
   maxPalpites: number
-  onAnimalToggle: (animalId: number) => void
+  onAddBet: (ids: number[]) => void
+  onRemoveBet: (index: number) => void
 }
 
 export default function AnimalSelection({
-  selectedAnimals,
+  animalBets,
   requiredPerBet,
   maxPalpites,
-  onAnimalToggle,
+  onAddBet,
+  onRemoveBet,
 }: AnimalSelectionProps) {
-  const maxAnimals = requiredPerBet * maxPalpites
+  const [current, setCurrent] = useState<number[]>([])
 
-  const canSelectMore = selectedAnimals.length < maxAnimals
+  useEffect(() => {
+    setCurrent([])
+  }, [requiredPerBet])
+
+  const maxReached = animalBets.length >= maxPalpites
+
+  const handleToggle = (id: number) => {
+    if (maxReached && !current.includes(id)) return
+    setCurrent((prev) => {
+      const exists = prev.includes(id)
+      const next = exists ? prev.filter((n) => n !== id) : [...prev, id]
+      if (next.length === requiredPerBet) {
+        onAddBet(next)
+        return []
+      }
+      if (next.length > requiredPerBet) return prev
+      return next
+    })
+  }
+
+  const formatBet = (ids: number[]) => ids.map((n) => String(n).padStart(2, '0')).join('-')
 
   return (
     <div>
@@ -26,50 +48,47 @@ export default function AnimalSelection({
         <h2 className="text-xl font-bold text-gray-950">Animais:</h2>
         <p className="text-gray-600">
           {requiredPerBet === 1
-            ? 'Escolha até 10 palpites (1 animal por palpite).'
-            : `Esta modalidade exige ${requiredPerBet} animais por palpite. Máximo de ${maxPalpites} palpites (${maxAnimals} animais).`}
+            ? 'Cada palpite é 1 animal (até 10 palpites).'
+            : `Cada palpite precisa de ${requiredPerBet} animais (até ${maxPalpites} palpites). Ao completar o grupo ele aparece abaixo.`}
         </p>
       </div>
 
-      {/* Selected Summary */}
-      <div className="mb-6">
-        <p className="mb-2 text-sm font-semibold text-gray-700">Selecionados:</p>
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-          {selectedAnimals.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {selectedAnimals.map((animalId) => {
-                const animal = ANIMALS.find((a) => a.id === animalId)
-                return (
-                  <span
-                    key={animalId}
-                    className="rounded-full bg-blue px-3 py-1 text-sm font-semibold text-white"
-                  >
-                    {animal?.name}
-                  </span>
-                )
-              })}
-            </div>
-          ) : (
-            <p className="text-gray-500">Nenhum animal selecionado</p>
-          )}
-        </div>
+      <div className="mb-4 flex flex-wrap gap-2">
+        {animalBets.map((bet, idx) => (
+          <span
+            key={idx}
+            className="flex items-center gap-2 rounded-lg bg-amber-400 px-3 py-2 text-base font-semibold text-gray-900 shadow"
+          >
+            {formatBet(bet)}
+            <button
+              onClick={() => onRemoveBet(idx)}
+              className="text-gray-900 hover:text-gray-700"
+              aria-label="Remover palpite"
+            >
+              <span className="iconify i-material-symbols:delete-outline text-lg"></span>
+            </button>
+          </span>
+        ))}
       </div>
 
-      {/* Animals Grid */}
+      {current.length > 0 && (
+        <div className="mb-4 text-sm text-blue-800">
+          Palpite em construção: {formatBet(current)} ({current.length}/{requiredPerBet})
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
         {ANIMALS.map((animal) => {
-          const isSelected = selectedAnimals.includes(animal.id)
-          const disabled = !isSelected && !canSelectMore
+          const isSelected = current.includes(animal.id)
+          const disabled = maxReached && !isSelected
           return (
             <button
               key={animal.id}
-              onClick={() => !disabled && onAnimalToggle(animal.id)}
+              onClick={() => handleToggle(animal.id)}
               disabled={disabled}
-              className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 p-4 transition-all hover:scale-105 ${
-                isSelected
-                  ? 'border-blue bg-blue/10 shadow-lg'
-                  : 'border-gray-200 bg-white hover:border-blue/50'
-              } ${disabled ? 'cursor-not-allowed opacity-50 hover:scale-100' : ''}`}
+              className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 p-4 transition-all ${
+                isSelected ? 'border-blue bg-blue/10 shadow-lg' : 'border-gray-200 bg-white hover:border-blue/50'
+              } ${disabled ? 'cursor-not-allowed opacity-50' : 'hover:scale-105'}`}
             >
               <div className="text-center">
                 <p className="font-bold text-gray-950">{animal.name}</p>

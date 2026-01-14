@@ -14,7 +14,7 @@ import BetConfirmation from './BetConfirmation'
 
 const INITIAL_BET_DATA: BetData = {
   modality: null,
-  animals: [],
+  animalBets: [],
   position: null,
   customPosition: false,
   amount: 2.0,
@@ -37,10 +37,7 @@ export default function BetFlow() {
 
   const requiredAnimalsPerBet = useMemo(() => getRequiredAnimalsPerBet(betData.modality), [betData.modality])
 
-  const animalsValid =
-    betData.animals.length > 0 &&
-    betData.animals.length <= requiredAnimalsPerBet * MAX_PALPITES &&
-    betData.animals.length % requiredAnimalsPerBet === 0
+  const animalsValid = betData.animalBets.length > 0 && betData.animalBets.length <= MAX_PALPITES
 
   useEffect(() => {
     const loadMe = async () => {
@@ -74,20 +71,29 @@ export default function BetFlow() {
     }
   }
 
-  const handleAnimalToggle = (animalId: number) => {
+  const handleAddAnimalBet = (ids: number[]) => {
+    setBetData((prev) => {
+      if (prev.animalBets.length >= MAX_PALPITES) return prev
+      return { ...prev, animalBets: [...prev.animalBets, ids] }
+    })
+  }
+
+  const handleRemoveAnimalBet = (index: number) => {
     setBetData((prev) => ({
       ...prev,
-      animals: prev.animals.includes(animalId)
-        ? prev.animals.filter((id) => id !== animalId)
-        : [...prev.animals, animalId],
+      animalBets: prev.animalBets.filter((_, i) => i !== index),
     }))
   }
 
   const handleConfirm = () => {
     const modalityName = MODALITIES.find((m) => String(m.id) === betData.modality)?.name || 'Modalidade'
-    const animalNames = betData.animals
-      .map((id) => ANIMALS.find((a) => a.id === id)?.name || `Animal ${id}`)
-      .join(', ')
+    const animalNames = betData.animalBets
+      .map((grp) =>
+        grp
+          .map((id) => ANIMALS.find((a) => a.id === id)?.name || `Animal ${String(id).padStart(2, '0')}`)
+          .join('-'),
+      )
+      .join(' | ')
 
     const payload = {
       concurso: betData.location ? `Extração ${betData.location}` : null,
@@ -182,10 +188,11 @@ export default function BetFlow() {
       case 2:
         return (
           <AnimalSelection
-            selectedAnimals={betData.animals}
+            animalBets={betData.animalBets}
             requiredPerBet={requiredAnimalsPerBet}
             maxPalpites={MAX_PALPITES}
-            onAnimalToggle={handleAnimalToggle}
+            onAddBet={handleAddAnimalBet}
+            onRemoveBet={handleRemoveAnimalBet}
           />
         )
 

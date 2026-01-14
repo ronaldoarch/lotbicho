@@ -163,9 +163,37 @@ export default function MinhasApostasPage() {
             {selecionada.detalhes && (
               <div className="mt-6 rounded-lg border border-gray-100 bg-gray-50 p-4 text-sm text-gray-800">
                 <h3 className="mb-2 font-semibold text-gray-900">Palpites</h3>
-                <pre className="whitespace-pre-wrap text-xs text-gray-700">
-                  {JSON.stringify(selecionada.detalhes, null, 2)}
-                </pre>
+
+                {/* Palpites de animais (animalBets) */}
+                {Array.isArray(selecionada.detalhes?.betData?.animalBets) &&
+                  selecionada.detalhes.betData.animalBets.length > 0 && (
+                    <div className="mb-3 flex flex-wrap gap-2">
+                      {selecionada.detalhes.betData.animalBets.map((bet: number[], idx: number) => (
+                        <span
+                          key={idx}
+                          className="flex items-center gap-2 rounded-lg bg-amber-200 px-3 py-1 text-xs font-semibold text-gray-900"
+                        >
+                          {bet.map((n) => String(n).padStart(2, '0')).join('-')}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                {/* Números ou outros detalhes se existirem */}
+                {selecionada.detalhes?.betData?.numbers && (
+                  <div className="mb-2 text-xs text-gray-800">
+                    <span className="font-semibold text-gray-900">Números:</span>{' '}
+                    {selecionada.detalhes.betData.numbers.join(', ')}
+                  </div>
+                )}
+
+                {/* Fallback: JSON bruto se não houver campos conhecidos */}
+                {!selecionada.detalhes?.betData?.animalBets &&
+                  !selecionada.detalhes?.betData?.numbers && (
+                    <pre className="whitespace-pre-wrap text-xs text-gray-700">
+                      {JSON.stringify(selecionada.detalhes, null, 2)}
+                    </pre>
+                  )}
               </div>
             )}
           </div>

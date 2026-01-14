@@ -1,10 +1,12 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { ANIMALS } from '@/data/animals'
 import { MODALITIES } from '@/data/modalities'
 import { BetData } from '@/types/bet'
 import { parsePosition, formatarPosicao } from '@/lib/position-parser'
 import { calcularValorPorPalpite } from '@/lib/bet-rules-engine'
+import { getExtracaoById, formatarExtracaoHorario, type Extracao } from '@/lib/extracao-helper'
 
 interface BetConfirmationProps {
   betData: BetData
@@ -54,6 +56,23 @@ export default function BetConfirmation({ betData, saldoDisponivel, onConfirm, o
         parsePosition(betData.position).pos_to
       )
     : null
+
+  const [extracaoInfo, setExtracaoInfo] = useState<string>('—')
+  
+  useEffect(() => {
+    const loadExtracao = async () => {
+      if (betData.location) {
+        const extracao = await getExtracaoById(betData.location)
+        setExtracaoInfo(formatarExtracaoHorario(extracao))
+      } else if (betData.specialTime) {
+        // Para horários especiais, manter o formato atual
+        setExtracaoInfo(betData.specialTime)
+      } else {
+        setExtracaoInfo('—')
+      }
+    }
+    loadExtracao()
+  }, [betData.location, betData.specialTime])
 
   const selectedModality = betData.modalityName
     ? { name: betData.modalityName, value: MODALITIES.find((m) => m.name === betData.modalityName)?.value || '' }
@@ -129,12 +148,12 @@ export default function BetConfirmation({ betData, saldoDisponivel, onConfirm, o
           </p>
         </div>
 
-        {/* Loteria e Horário */}
+        {/* Extração e Horário */}
         {(betData.location || betData.specialTime) && (
           <div>
-            <h3 className="mb-2 font-semibold text-gray-700">Loteria / Horário:</h3>
-            <p className="text-gray-950">
-              {[betData.location, betData.specialTime].filter(Boolean).join(' • ') || '—'}
+            <h3 className="mb-2 font-semibold text-gray-700">Extração / Horário:</h3>
+            <p className="text-lg font-bold text-gray-950">
+              {extracaoInfo}
             </p>
           </div>
         )}

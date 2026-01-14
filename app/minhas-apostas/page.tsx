@@ -6,6 +6,7 @@ import Footer from '@/components/Footer'
 import BottomNav from '@/components/BottomNav'
 import { parsePosition, formatarPosicao } from '@/lib/position-parser'
 import { calcularValorPorPalpite } from '@/lib/bet-rules-engine'
+import { getExtracaoById, formatarExtracaoHorario, type Extracao } from '@/lib/extracao-helper'
 
 interface Aposta {
   id: number
@@ -98,6 +99,27 @@ export default function MinhasApostasPage() {
                           parsePosition(betData.position).pos_to
                         )
                       : '—'
+                    
+                    // Componente interno para buscar extração
+                    const ExtracaoCell = () => {
+                      const [extracaoInfo, setExtracaoInfo] = useState<string>('—')
+                      
+                      useEffect(() => {
+                        const loadExtracao = async () => {
+                          if (betData?.location) {
+                            const extracao = await getExtracaoById(betData.location)
+                            setExtracaoInfo(formatarExtracaoHorario(extracao))
+                          } else if (betData?.specialTime) {
+                            setExtracaoInfo(betData.specialTime)
+                          } else if (a.loteria || a.horario) {
+                            setExtracaoInfo([a.loteria, a.horario].filter(Boolean).join(' • ') || '—')
+                          }
+                        }
+                        loadExtracao()
+                      }, [betData?.location, betData?.specialTime, a.loteria, a.horario])
+                      
+                      return <span>{extracaoInfo}</span>
+                    }
 
                     return (
                       <tr key={a.id} className="border-b border-gray-100 text-sm text-gray-800">
@@ -138,7 +160,7 @@ export default function MinhasApostasPage() {
                             : '—'}
                         </td>
                         <td className="px-4 py-3 text-xs">
-                          {[a.loteria, a.horario].filter(Boolean).join(' • ') || '—'}
+                          <ExtracaoCell />
                         </td>
                         <td className="px-4 py-3 font-semibold text-gray-900">
                           R$ {Number(a.valor || 0).toFixed(2)}

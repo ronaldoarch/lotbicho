@@ -118,6 +118,8 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    console.log(`📊 Total de apostas pendentes encontradas: ${apostasPendentes.length}`)
+    
     if (apostasPendentes.length === 0) {
       return NextResponse.json({
         message: 'Nenhuma aposta pendente encontrada',
@@ -126,6 +128,15 @@ export async function POST(request: NextRequest) {
         premioTotal: 0,
       })
     }
+    
+    // Log das apostas encontradas para debug
+    apostasPendentes.forEach((aposta, idx) => {
+      console.log(`📋 Aposta ${idx + 1} (ID: ${aposta.id}):`)
+      console.log(`   - Loteria: ${aposta.loteria || 'N/A'}`)
+      console.log(`   - Horário: ${aposta.horario || 'N/A'}`)
+      console.log(`   - Data Concurso: ${aposta.dataConcurso || 'N/A'}`)
+      console.log(`   - Modalidade: ${aposta.modalidade || 'N/A'}`)
+    })
 
     // Buscar resultados oficiais (com timeout)
     const resultadosResponse = await fetch(
@@ -142,6 +153,19 @@ export async function POST(request: NextRequest) {
 
     const resultadosData = await resultadosResponse.json()
     const resultados: ResultadoItem[] = resultadosData.results || resultadosData.resultados || []
+
+    console.log(`📊 Total de resultados oficiais encontrados: ${resultados.length}`)
+    if (resultados.length > 0) {
+      console.log(`📋 Primeiros 3 resultados:`)
+      resultados.slice(0, 3).forEach((r, idx) => {
+        console.log(`   Resultado ${idx + 1}:`)
+        console.log(`   - Loteria: ${r.loteria || 'N/A'}`)
+        console.log(`   - Horário: ${r.horario || 'N/A'}`)
+        console.log(`   - Data: ${r.date || r.dataExtracao || 'N/A'}`)
+        console.log(`   - Posição: ${r.position || 'N/A'}`)
+        console.log(`   - Milhar: ${r.milhar || 'N/A'}`)
+      })
+    }
 
     if (resultados.length === 0) {
       return NextResponse.json({
@@ -177,29 +201,68 @@ export async function POST(request: NextRequest) {
     for (const aposta of apostasPendentes) {
       try {
         // Filtrar resultados por loteria/horário/data da aposta
+        // Se loteria é um ID numérico, buscar o nome da extração primeiro
+        let loteriaNome = aposta.loteria
+        if (aposta.loteria && /^\d+$/.test(aposta.loteria)) {
+          // É um ID numérico, tentar buscar o nome da extração
+          try {
+            const { getExtracaoById } = await import('@/lib/extracao-helper')
+            const extracao = await getExtracaoById(parseInt(aposta.loteria))
+            if (extracao) {
+              loteriaNome = extracao.name
+              console.log(`   - Loteria ID ${aposta.loteria} → Nome: "${loteriaNome}"`)
+            }
+          } catch (error) {
+            console.log(`   - Erro ao buscar extração por ID: ${error}`)
+          }
+        }
+
         let resultadosFiltrados = resultados
 
-        if (aposta.loteria) {
-          resultadosFiltrados = resultadosFiltrados.filter(
-            (r) => r.loteria?.toLowerCase().includes(aposta.loteria!.toLowerCase())
-          )
+        if (loteriaNome) {
+          const loteriaLower = loteriaNome.toLowerCase()
+          resultadosFiltrados = resultadosFiltrados.filter((r) => {
+            const rLoteria = r.loteria?.toLowerCase() || ''
+            // Verificar se o nome da loteria contém ou é contido pela loteria da aposta
+            return rLoteria.includes(loteriaLower) || loteriaLower.includes(rLoteria)
+          })
+          console.log(`   - Após filtro de loteria "${loteriaNome}": ${resultadosFiltrados.length} resultados`)
         }
 
-        if (aposta.horario) {
-          resultadosFiltrados = resultadosFiltrados.filter((r) => r.horario === aposta.horario)
+        if (aposta.horario && resultadosFiltrados.length > 0) {
+          const horarioAposta = aposta.horario.trim()
+          const antes = resultadosFiltrados.length
+          resultadosFiltrados = resultadosFiltrados.filter((r) => {
+            const rHorario = r.horario?.trim() || ''
+            // Comparação flexível de horário (pode ser "15:03" ou "15:03:00")
+            return rHorario === horarioAposta || 
+                   rHorario.startsWith(horarioAposta) || 
+                   horarioAposta.startsWith(rHorario)
+          })
+          console.log(`   - Após filtro de horário "${horarioAposta}": ${resultadosFiltrados.length} resultados (antes: ${antes})`)
         }
 
-        if (aposta.dataConcurso) {
+        if (aposta.dataConcurso && resultadosFiltrados.length > 0) {
           const dataAposta = aposta.dataConcurso.toISOString().split('T')[0]
+          const antes = resultadosFiltrados.length
           resultadosFiltrados = resultadosFiltrados.filter((r) => {
             if (!r.date && !r.dataExtracao) return false
             const dataResultado = (r.date || r.dataExtracao)?.split('T')[0]
             return dataResultado === dataAposta
           })
+          console.log(`   - Após filtro de data "${dataAposta}": ${resultadosFiltrados.length} resultados (antes: ${antes})`)
         }
 
+        console.log(`\n🔍 Processando aposta ${aposta.id}:`)
+        console.log(`   - Loteria da aposta: "${aposta.loteria}"`)
+        console.log(`   - Horário da aposta: "${aposta.horario}"`)
+        console.log(`   - Data da aposta: ${aposta.dataConcurso?.toISOString().split('T')[0]}`)
+        console.log(`   - Resultados antes do filtro: ${resultados.length}`)
+        console.log(`   - Resultados após filtro: ${resultadosFiltrados.length}`)
+        
         if (resultadosFiltrados.length === 0) {
-          console.log(`Nenhum resultado encontrado para aposta ${aposta.id}`)
+          console.log(`   ❌ Nenhum resultado encontrado para aposta ${aposta.id}`)
+          console.log(`   💡 Verifique se loteria/horário/data estão corretos`)
           continue
         }
 

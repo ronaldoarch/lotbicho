@@ -245,8 +245,9 @@ export async function POST(request: NextRequest) {
       try {
         // Filtrar resultados por loteria/horário/data da aposta
         // Se loteria é um ID numérico, buscar o nome da extração primeiro
-        // Cache de extrações para evitar múltiplas queries
         let loteriaNome = aposta.loteria
+        let usarFiltroLoteria = true
+        
         if (aposta.loteria && /^\d+$/.test(aposta.loteria)) {
           // É um ID numérico, buscar diretamente do banco de dados
           try {
@@ -260,15 +261,19 @@ export async function POST(request: NextRequest) {
               console.log(`   - Loteria ID ${aposta.loteria} → Nome: "${loteriaNome}"`)
             } else {
               console.log(`   - Extração ID ${aposta.loteria} não encontrada no banco`)
+              console.log(`   - ⚠️ Pulando filtro de loteria (extração não encontrada)`)
+              usarFiltroLoteria = false
             }
           } catch (error) {
             console.log(`   - Erro ao buscar extração por ID: ${error}`)
+            usarFiltroLoteria = false
           }
         }
 
         let resultadosFiltrados = resultados
 
-        if (loteriaNome) {
+        // Só filtrar por loteria se tiver nome válido e a extração foi encontrada
+        if (usarFiltroLoteria && loteriaNome) {
           const loteriaLower = loteriaNome.toLowerCase().trim()
           const antes = resultadosFiltrados.length
           resultadosFiltrados = resultadosFiltrados.filter((r) => {
@@ -287,9 +292,14 @@ export async function POST(request: NextRequest) {
           
           // Se não encontrou resultados, mostrar exemplos para debug
           if (resultadosFiltrados.length === 0 && antes > 0) {
-            const exemplos = resultados.slice(0, 5).map(r => r.loteria).filter(Boolean)
+            const exemplos = [...new Set(resultados.slice(0, 10).map(r => r.loteria).filter(Boolean))]
             console.log(`   - Exemplos de loterias disponíveis: ${exemplos.join(', ')}`)
+            console.log(`   - ⚠️ Tentando liquidar sem filtro de loteria...`)
+            // Se não encontrou com filtro, tentar sem filtro de loteria
+            resultadosFiltrados = resultados
           }
+        } else {
+          console.log(`   - Pulando filtro de loteria (extração não encontrada ou inválida)`)
         }
 
         // Só filtrar por horário se houver horário definido e não for null

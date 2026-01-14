@@ -99,27 +99,6 @@ export default function MinhasApostasPage() {
                           parsePosition(betData.position).pos_to
                         )
                       : '—'
-                    
-                    // Componente interno para buscar extração
-                    const ExtracaoCell = () => {
-                      const [extracaoInfo, setExtracaoInfo] = useState<string>('—')
-                      
-                      useEffect(() => {
-                        const loadExtracao = async () => {
-                          if (betData?.location) {
-                            const extracao = await getExtracaoById(betData.location)
-                            setExtracaoInfo(formatarExtracaoHorario(extracao))
-                          } else if (betData?.specialTime) {
-                            setExtracaoInfo(betData.specialTime)
-                          } else if (a.loteria || a.horario) {
-                            setExtracaoInfo([a.loteria, a.horario].filter(Boolean).join(' • ') || '—')
-                          }
-                        }
-                        loadExtracao()
-                      }, [betData?.location, betData?.specialTime, a.loteria, a.horario])
-                      
-                      return <span>{extracaoInfo}</span>
-                    }
 
                     return (
                       <tr key={a.id} className="border-b border-gray-100 text-sm text-gray-800">
@@ -160,7 +139,12 @@ export default function MinhasApostasPage() {
                             : '—'}
                         </td>
                         <td className="px-4 py-3 text-xs">
-                          <ExtracaoCell />
+                          <ExtracaoCell 
+                            location={betData?.location}
+                            specialTime={betData?.specialTime}
+                            loteria={a.loteria}
+                            horario={a.horario}
+                          />
                         </td>
                         <td className="px-4 py-3 font-semibold text-gray-900">
                           R$ {Number(a.valor || 0).toFixed(2)}
@@ -410,4 +394,24 @@ function Detail({ label, value }: { label: string; value: string }) {
       <p className="font-semibold text-gray-900">{value}</p>
     </div>
   )
+}
+
+function ExtracaoCell({ location, specialTime, loteria, horario }: { location?: string | null; specialTime?: string | null; loteria?: string | null; horario?: string | null }) {
+  const [extracaoInfo, setExtracaoInfo] = useState<string>('—')
+  
+  useEffect(() => {
+    const loadExtracao = async () => {
+      if (location) {
+        const extracao = await getExtracaoById(location)
+        setExtracaoInfo(formatarExtracaoHorario(extracao))
+      } else if (specialTime) {
+        setExtracaoInfo(specialTime)
+      } else if (loteria || horario) {
+        setExtracaoInfo([loteria, horario].filter(Boolean).join(' • ') || '—')
+      }
+    }
+    loadExtracao()
+  }, [location, specialTime, loteria, horario])
+  
+  return <span>{extracaoInfo}</span>
 }

@@ -138,35 +138,63 @@ export async function POST(request: NextRequest) {
       console.log(`   - Modalidade: ${aposta.modalidade || 'N/A'}`)
     })
 
-    // Buscar resultados oficiais (com timeout maior)
+    // Buscar resultados oficiais (com timeout maior e retry)
     let resultadosResponse
-    try {
-      resultadosResponse = await fetch(
-        `${process.env.BICHO_CERTO_API ?? 'https://okgkgswwkk8ows0csow0c4gg.agenciamidas.com/api/resultados'}`,
-        { 
-          cache: 'no-store',
-          signal: AbortSignal.timeout(45000) // 45 segundos timeout
-        }
-      )
+    let resultadosData
+    const maxRetries = 2
+    let lastError: Error | null = null
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`🔄 Tentativa ${attempt}/${maxRetries} de buscar resultados oficiais...`)
+        resultadosResponse = await fetch(
+          `${process.env.BICHO_CERTO_API ?? 'https://okgkgswwkk8ows0csow0c4gg.agenciamidas.com/api/resultados'}`,
+          { 
+            cache: 'no-store',
+            signal: AbortSignal.timeout(60000) // 60 segundos timeout por tentativa
+          }
+        )
 
-      if (!resultadosResponse.ok) {
-        throw new Error(`Erro ao buscar resultados oficiais: ${resultadosResponse.status}`)
+        if (!resultadosResponse.ok) {
+          throw new Error(`Erro ao buscar resultados oficiais: ${resultadosResponse.status}`)
+        }
+        
+        resultadosData = await resultadosResponse.json()
+        console.log(`✅ Resultados obtidos com sucesso na tentativa ${attempt}`)
+        break // Sucesso, sair do loop
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error))
+        if (error instanceof Error && error.name === 'TimeoutError') {
+          console.error(`⏱️ Timeout na tentativa ${attempt}/${maxRetries}`)
+          if (attempt < maxRetries) {
+            console.log(`🔄 Aguardando 2 segundos antes da próxima tentativa...`)
+            await new Promise(resolve => setTimeout(resolve, 2000))
+            continue
+          }
+        } else {
+          console.error(`❌ Erro na tentativa ${attempt}:`, error)
+          if (attempt < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, 2000))
+            continue
+          }
+        }
       }
-    } catch (error) {
-      if (error instanceof Error && error.name === 'TimeoutError') {
-        console.error('⏱️ Timeout ao buscar resultados oficiais')
-        return NextResponse.json({
-          error: 'Timeout ao buscar resultados oficiais',
-          message: 'A API de resultados demorou muito para responder. Tente novamente.',
-          processadas: 0,
-          liquidadas: 0,
-          premioTotal: 0,
-        }, { status: 504 })
-      }
-      throw error
+    }
+    
+    // Se todas as tentativas falharam
+    if (!resultadosData) {
+      console.error('❌ Falha ao buscar resultados após todas as tentativas')
+      return NextResponse.json({
+        error: 'Erro ao buscar resultados oficiais',
+        message: lastError?.name === 'TimeoutError' 
+          ? 'A API de resultados demorou muito para responder após múltiplas tentativas.'
+          : `Erro ao buscar resultados: ${lastError?.message || 'Erro desconhecido'}`,
+        processadas: 0,
+        liquidadas: 0,
+        premioTotal: 0,
+      }, { status: 504 })
     }
 
-    const resultadosData = await resultadosResponse.json()
     const resultados: ResultadoItem[] = resultadosData.results || resultadosData.resultados || []
 
     console.log(`📊 Total de resultados oficiais encontrados: ${resultados.length}`)

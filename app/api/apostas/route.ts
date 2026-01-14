@@ -232,6 +232,16 @@ export async function POST(request: Request) {
         })
       }
 
+      // Determinar status correto para apostas instantâneas
+      let statusFinal: string
+      if (isInstant) {
+        // Aposta instantânea: liquidado se ganhou, perdida se não ganhou
+        statusFinal = premioTotal > 0 ? 'liquidado' : 'perdida'
+      } else {
+        // Aposta normal: pendente até ser liquidada pelo cron
+        statusFinal = status || 'pendente'
+      }
+
       const created = await tx.aposta.create({
         data: {
           usuarioId: user.id,
@@ -244,7 +254,7 @@ export async function POST(request: Request) {
           aposta: aposta || null,
           valor: valorTotalAposta,
           retornoPrevisto: premioTotal > 0 ? premioTotal : (retornoPrevisto ? Number(retornoPrevisto) : 0),
-          status: isInstant ? 'liquidado' : (status || 'pendente'),
+          status: statusFinal,
           detalhes: {
             ...(detalhes && typeof detalhes === 'object' ? detalhes : {}),
             resultadoInstantaneo: resultadoInstantaneo,

@@ -27,8 +27,9 @@ export async function getExtracoes(): Promise<Extracao[]> {
   try {
     const res = await fetch('/api/admin/extracoes', { cache: 'no-store' })
     const data = await res.json()
-    extracoesCache = data?.extracoes || []
-    return extracoesCache
+    const extracoes = data?.extracoes || []
+    extracoesCache = extracoes
+    return extracoes
   } catch (error) {
     console.error('Erro ao buscar extrações:', error)
     return []

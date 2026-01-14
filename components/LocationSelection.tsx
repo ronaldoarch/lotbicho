@@ -66,9 +66,9 @@ export default function LocationSelection({
   const normalized = useMemo(() => {
     return extracoes
       .map((e) => {
-        // closeTime = quando fecha no site (para de aceitar apostas)
-        // realCloseTime = quando acontece a apuração no bicho certo
-        const closeStr = e.closeTime || e.time // Usa closeTime primeiro (quando fecha no site)
+        // realCloseTime = quando fecha no site (para de aceitar apostas)
+        // closeTime = quando acontece a apuração no bicho certo
+        const closeStr = e.realCloseTime || e.closeTime || e.time // Usa realCloseTime primeiro (quando fecha no site)
         const closeDate = parseTimeToday(closeStr)
         const minutesToClose = closeDate ? (closeDate.getTime() - now) / 60000 : Number.POSITIVE_INFINITY
         return { ...e, closeStr, closeDate, minutesToClose }
@@ -182,7 +182,7 @@ export default function LocationSelection({
                         <div className="mt-1 text-sm text-gray-700">
                           Fecha às <strong>{ext.closeStr}</strong>
                           {ext.realCloseTime && ext.realCloseTime !== ext.closeTime && (
-                            <span className="text-xs text-gray-500"> (apuracao: {ext.realCloseTime})</span>
+                            <span className="text-xs text-gray-500"> (apuracao: {ext.closeTime})</span>
                           )}
                         </div>
                         <div className="mt-1 text-xs text-gray-500">Dias: {ext.days}</div>

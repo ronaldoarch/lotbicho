@@ -754,3 +754,105 @@ Fecha às <strong>{ext.closeStr}</strong> // realCloseTime
 ### Correções Críticas
 - ✅ Bug corrigido: apostas instantâneas marcadas corretamente (ganhou/perdeu)
 - ✅ Horários de extrações: realCloseTime fecha no site, closeTime é apuração
+
+---
+
+## 🐛 Problemas de Liquidação e Resultados
+
+### Problema 16: Liquidação ocorrendo antes do horário de apuração
+
+**Sintoma:**
+Apostas sendo liquidadas antes do horário correto de apuração, causando resultados incorretos.
+
+**Causa:**
+O sistema não verificava se já havia passado o horário de apuração (`closeTime`) antes de liquidar apostas.
+
+**Solução:**
+Implementada função `jaPassouHorarioApuracao()` que:
+1. Identifica a extração da aposta pelo ID da loteria
+2. Busca o `closeTime` (horário de apuração) da extração
+3. Compara com o horário atual:
+   - Se for hoje: verifica se já passou o horário de apuração
+   - Se for dia passado: permite liquidar
+   - Se for dia futuro: não permite liquidar ainda
+
+**Arquivos modificados:**
+- `app/api/resultados/liquidar/route.ts`
+
+**Exemplo de log:**
+```
+⏰ Ainda não passou o horário de apuração (15:20)
+⏸️  Pulando aposta 9 - aguardando apuração
+```
+
+---
+
+### Problema 17: Extrações não encontram resultados devido a nomes diferentes
+
+**Sintoma:**
+Algumas extrações não conseguem encontrar resultados na API externa, mesmo quando os resultados existem. Os logs mostram que a API externa retorna nomes diferentes dos cadastrados:
+- API externa: "PT Rio de Janeiro" → Sistema cadastrado: "PT RIO"
+- API externa: "PT-SP/Bandeirantes" → Sistema cadastrado: "PT SP"
+- API externa: "PT Bahia" → Sistema cadastrado: "PT BAHIA"
+
+**Causa:**
+O sistema fazia match exato ou muito restritivo entre os nomes das extrações cadastradas e os nomes retornados pela API externa, causando falhas na liquidação.
+
+**Solução:**
+Implementado sistema de mapeamento flexível que:
+1. Cria lista de nomes possíveis para cada extração (incluindo variações comuns)
+2. Faz match por palavras-chave principais
+3. Tenta match parcial por palavras individuais
+4. Fallback para buscar sem filtro de loteria se necessário
+
+**Mapeamentos implementados:**
+- **PT RIO** → "pt rio", "pt rio de janeiro", "pt-rio", "pt-rio de janeiro", "mpt-rio", "mpt rio"
+- **PT BAHIA** → "pt bahia", "pt-ba", "maluca bahia"
+- **PT SP** → "pt sp", "pt-sp", "pt sp bandeirantes", "pt-sp/bandeirantes", "bandeirantes", "pt sp (band)"
+- **LOOK** → "look", "look goiás", "look goias"
+- **LOTEP** → "lotep", "pt paraiba/lotep", "pt paraiba", "pt paraíba", "pt-pb"
+- E outras variações
+
+**Arquivos modificados:**
+- `app/api/resultados/liquidar/route.ts`
+
+**Exemplo de log:**
+```
+- Loteria ID 16 → Nome: "PT RIO" (ativa: true)
+- Nomes possíveis para match: pt rio, PT RIO, pt rio de janeiro, pt-rio...
+- Após filtro de loteria "PT RIO": 28 resultados (antes: 157)
+```
+
+---
+
+### Problema 18: Logs de debug para identificar problemas de resultados
+
+**Sintoma:**
+Dificuldade em identificar quais extrações têm resultados disponíveis e quantos horários cada uma possui.
+
+**Solução:**
+Adicionados logs detalhados na API de resultados que mostram:
+1. Quantos horários cada extração tem
+2. Total de extrações e horários processados
+3. Quantos grupos únicos foram criados após o agrupamento
+4. Lista dos grupos (loteria|horário|data) para facilitar identificação
+
+**Arquivos modificados:**
+- `app/api/resultados/route.ts`
+
+**Exemplo de log:**
+```
+📊 Extração "PT RIO": 5 horário(s) - 11:20, 14:20, 16:20, 18:20, 21:20
+📊 Extração "PT BAHIA": 5 horário(s) - 10:20, 12:20, 15:20, 19:00, 21:20
+📈 Total processado: 18 extrações, 49 horários, 157 resultados
+✅ Resultados finais: 6 grupos únicos (loteria|horário|data), 24 resultados totais
+```
+
+---
+
+### Correções Críticas
+- ✅ Bug corrigido: apostas instantâneas marcadas corretamente (ganhou/perdeu)
+- ✅ Horários de extrações: realCloseTime fecha no site, closeTime é apuração
+- ✅ Verificação de horário de apuração antes de liquidar
+- ✅ Mapeamento flexível de nomes de extrações para encontrar resultados
+- ✅ Logs detalhados para debug de problemas de resultados

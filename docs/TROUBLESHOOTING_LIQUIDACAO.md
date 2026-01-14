@@ -642,6 +642,83 @@ npx prisma validate
 
 ---
 
+## 🐛 Problemas de Lógica de Negócio
+
+### Problema 14: Apostas instantâneas marcadas como ganhas mesmo quando perdiam
+
+**Sintoma:**
+Apostas instantâneas apareciam como "Ganhou" (liquidado) mesmo quando não ganharam.
+
+**Causa:**
+Todas as apostas instantâneas eram marcadas como `'liquidado'` independentemente de terem ganhado ou perdido:
+
+```typescript
+// ❌ ERRADO (antes)
+status: isInstant ? 'liquidado' : (status || 'pendente'),
+```
+
+**Solução:**
+Verificar se `premioTotal > 0` para determinar o status:
+
+```typescript
+// ✅ CORRETO (agora)
+let statusFinal: string
+if (isInstant) {
+  // Aposta instantânea: liquidado se ganhou, perdida se não ganhou
+  statusFinal = premioTotal > 0 ? 'liquidado' : 'perdida'
+} else {
+  // Aposta normal: pendente até ser liquidada pelo cron
+  statusFinal = status || 'pendente'
+}
+```
+
+**Arquivos modificados:**
+- `app/api/apostas/route.ts`
+
+**Exemplo:**
+- Palpite: 12-13 (grupos 12 e 13)
+- Resultado: grupos 23, 25, 10 nas posições 1-3
+- Resultado esperado: `'perdida'` (não ganhou)
+- Antes: marcava como `'liquidado'` incorretamente
+- Agora: marca como `'perdida'` corretamente
+
+---
+
+### Problema 15: Confusão entre realCloseTime e closeTime
+
+**Sintoma:**
+Horários de fechamento e apuração estavam sendo usados incorretamente.
+
+**Causa:**
+Confusão sobre qual campo representa o quê:
+- `realCloseTime` = quando fecha no site (para de aceitar apostas)
+- `closeTime` = quando acontece a apuração no "bicho certo"
+
+**Solução:**
+Garantir uso correto em todo o código:
+
+```typescript
+// ✅ CORRETO
+// realCloseTime = quando fecha no site (para de aceitar apostas)
+// closeTime = quando acontece a apuração no bicho certo
+const closeStr = e.realCloseTime || e.closeTime || e.time // Usa realCloseTime primeiro
+```
+
+**Exibição:**
+```typescript
+// Mostra quando fecha no site
+Fecha às <strong>{ext.closeStr}</strong> // realCloseTime
+// Mostra quando acontece apuração (se diferente)
+{ext.realCloseTime && ext.realCloseTime !== ext.closeTime && (
+  <span>(apuracao: {ext.closeTime})</span>
+)}
+```
+
+**Arquivos modificados:**
+- `components/LocationSelection.tsx`
+
+---
+
 ## 📚 Documentação Adicional Criada
 
 ### Guia de Banner para Sora
@@ -673,3 +750,7 @@ npx prisma validate
 ### Limpeza
 - ✅ Remoção completa do PONTO-CORUJA
 - ✅ Seção de horários especiais oculta quando vazia
+
+### Correções Críticas
+- ✅ Bug corrigido: apostas instantâneas marcadas corretamente (ganhou/perdeu)
+- ✅ Horários de extrações: realCloseTime fecha no site, closeTime é apuração

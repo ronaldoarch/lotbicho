@@ -18,7 +18,7 @@ interface Aposta {
   aposta?: string | null
   valor: number
   retornoPrevisto?: number | null
-  status: 'pendente' | 'ganhou' | 'perdeu' | 'liquidado'
+  status: 'pendente' | 'ganhou' | 'perdeu' | 'perdida' | 'liquidado'
   detalhes?: any
 }
 
@@ -156,7 +156,7 @@ export default function MinhasApostasPage() {
                                   : 'bg-gray-100 text-gray-700'
                             }`}
                           >
-                            {a.status === 'liquidado' ? 'Ganhou' : a.status === 'perdida' ? 'Perdeu' : a.status}
+                            {a.status === 'liquidado' ? 'Ganhou' : (a.status === 'perdida' || a.status === 'perdeu') ? 'Perdeu' : a.status}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right">

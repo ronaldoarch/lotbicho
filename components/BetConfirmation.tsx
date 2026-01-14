@@ -153,7 +153,7 @@ export default function BetConfirmation({ betData, saldoDisponivel, onConfirm, o
           <div>
             <h3 className="mb-2 font-semibold text-gray-700">Extração / Horário:</h3>
             <p className="text-lg font-bold text-gray-950">
-              {extracaoInfo}
+              {extracaoInfo === '—' ? 'Carregando...' : extracaoInfo}
             </p>
           </div>
         )}

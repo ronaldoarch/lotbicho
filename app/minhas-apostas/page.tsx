@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import BottomNav from '@/components/BottomNav'
+import { parsePosition, formatarPosicao } from '@/lib/position-parser'
+import { calcularValorPorPalpite } from '@/lib/bet-rules-engine'
 
 interface Aposta {
   id: number
@@ -16,7 +18,7 @@ interface Aposta {
   aposta?: string | null
   valor: number
   retornoPrevisto?: number | null
-  status: 'pendente' | 'ganhou' | 'perdeu'
+  status: 'pendente' | 'ganhou' | 'perdeu' | 'liquidado'
   detalhes?: any
 }
 
@@ -66,53 +68,108 @@ export default function MinhasApostasPage() {
               <table className="min-w-full border-collapse">
                 <thead>
                   <tr className="border-b border-gray-200 bg-gray-50 text-left text-sm font-semibold text-gray-700">
-                    <th className="px-4 py-3">Concurso</th>
-                    <th className="px-4 py-3">Aposta</th>
-                    <th className="px-4 py-3">Data</th>
-                    <th className="px-4 py-3">Valor</th>
-                    <th className="px-4 py-3">Retorno</th>
+                    <th className="px-4 py-3">Palpites</th>
+                    <th className="px-4 py-3">Modalidade</th>
+                    <th className="px-4 py-3">Posição</th>
+                    <th className="px-4 py-3">Data/Hora</th>
+                    <th className="px-4 py-3">Loteria/Horário</th>
+                    <th className="px-4 py-3">Valor Total</th>
+                    <th className="px-4 py-3">Valor/Palpite</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {apostas.map((a) => (
-                    <tr key={a.id} className="border-b border-gray-100 text-sm text-gray-800">
-                      <td className="px-4 py-3">
-                        <div className="font-semibold text-gray-900">{a.concurso || '—'}</div>
-                        <div className="text-xs text-gray-500">
-                          {[a.loteria, a.estado, a.horario].filter(Boolean).join(' • ')}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">{a.aposta || a.modalidade || '—'}</td>
-                      <td className="px-4 py-3">
-                        {a.dataConcurso ? new Date(a.dataConcurso).toLocaleString('pt-BR') : '—'}
-                      </td>
-                      <td className="px-4 py-3">R$ {Number(a.valor || 0).toFixed(2)}</td>
-                      <td className="px-4 py-3">R$ {Number(a.retornoPrevisto || 0).toFixed(2)}</td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                            a.status === 'ganhou'
-                              ? 'bg-green-100 text-green-800'
-                              : a.status === 'pendente'
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : 'bg-gray-100 text-gray-700'
-                          }`}
-                        >
-                          {a.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <button
-                          onClick={() => setSelecionada(a)}
-                          className="text-sm font-semibold text-blue hover:text-blue-700"
-                        >
-                          Ver detalhes
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {apostas.map((a) => {
+                    const betData = a.detalhes?.betData
+                    const animalBets = betData?.animalBets || []
+                    const numberBets = betData?.numberBets || []
+                    const qtdPalpites = animalBets.length + numberBets.length
+                    const valorPorPalpite = qtdPalpites > 0 
+                      ? calcularValorPorPalpite(
+                          betData?.amount || a.valor,
+                          qtdPalpites,
+                          betData?.divisionType || 'all'
+                        )
+                      : a.valor
+                    const posicaoFormatada = betData?.position
+                      ? formatarPosicao(
+                          parsePosition(betData.position).pos_from,
+                          parsePosition(betData.position).pos_to
+                        )
+                      : '—'
+
+                    return (
+                      <tr key={a.id} className="border-b border-gray-100 text-sm text-gray-800">
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-1">
+                            {animalBets.map((bet: number[], idx: number) => (
+                              <span
+                                key={idx}
+                                className="rounded bg-amber-200 px-1.5 py-0.5 text-xs font-semibold text-gray-900"
+                              >
+                                {bet.map((n) => String(n).padStart(2, '0')).join('-')}
+                              </span>
+                            ))}
+                            {numberBets.map((num: string, idx: number) => (
+                              <span
+                                key={idx}
+                                className="rounded bg-blue-200 px-1.5 py-0.5 text-xs font-semibold text-gray-900"
+                              >
+                                {num}
+                              </span>
+                            ))}
+                            {qtdPalpites === 0 && (
+                              <span className="text-xs text-gray-500">{a.aposta || '—'}</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 font-semibold text-gray-900">{a.modalidade || '—'}</td>
+                        <td className="px-4 py-3 text-xs text-gray-600">{posicaoFormatada}</td>
+                        <td className="px-4 py-3 text-xs">
+                          {a.dataConcurso
+                            ? new Date(a.dataConcurso).toLocaleString('pt-BR', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })
+                            : '—'}
+                        </td>
+                        <td className="px-4 py-3 text-xs">
+                          {[a.loteria, a.horario].filter(Boolean).join(' • ') || '—'}
+                        </td>
+                        <td className="px-4 py-3 font-semibold text-gray-900">
+                          R$ {Number(a.valor || 0).toFixed(2)}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-600">
+                          {qtdPalpites > 0 ? `R$ ${valorPorPalpite.toFixed(2)}` : '—'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                              a.status === 'ganhou' || a.status === 'liquidado'
+                                ? 'bg-green-100 text-green-800'
+                                : a.status === 'pendente'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-gray-100 text-gray-700'
+                            }`}
+                          >
+                            {a.status === 'liquidado' ? 'Ganhou' : a.status === 'perdida' ? 'Perdeu' : a.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            onClick={() => setSelecionada(a)}
+                            className="text-sm font-semibold text-blue hover:text-blue-700"
+                          >
+                            Ver detalhes
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -146,7 +203,40 @@ export default function MinhasApostasPage() {
             <div className="grid grid-cols-2 gap-4 text-sm text-gray-800">
               <Detail label="Modalidade" value={selecionada.modalidade || '—'} />
               <Detail label="Status" value={selecionada.status} />
-              <Detail label="Aposta" value={selecionada.aposta || '—'} />
+              
+              {/* Posição */}
+              {selecionada.detalhes?.betData?.position && (
+                <Detail
+                  label="Posição"
+                  value={formatarPosicao(
+                    parsePosition(selecionada.detalhes.betData.position).pos_from,
+                    parsePosition(selecionada.detalhes.betData.position).pos_to
+                  )}
+                />
+              )}
+              
+              {/* Valor por palpite */}
+              {selecionada.detalhes?.betData && (
+                (() => {
+                  const betData = selecionada.detalhes.betData
+                  const qtdPalpites = (betData.animalBets?.length || 0) + (betData.numberBets?.length || 0)
+                  if (qtdPalpites > 0) {
+                    const valorPorPalpite = calcularValorPorPalpite(
+                      betData.amount || selecionada.valor,
+                      qtdPalpites,
+                      betData.divisionType || 'all'
+                    )
+                    return (
+                      <Detail
+                        label="Valor por palpite"
+                        value={`R$ ${valorPorPalpite.toFixed(2)}`}
+                      />
+                    )
+                  }
+                  return null
+                })()
+              )}
+              
               <Detail
                 label="Valor apostado"
                 value={`R$ ${Number(selecionada.valor || 0).toFixed(2)}`}
@@ -155,45 +245,112 @@ export default function MinhasApostasPage() {
                 label="Retorno previsto"
                 value={`R$ ${Number(selecionada.retornoPrevisto || 0).toFixed(2)}`}
               />
-              <Detail label="Horário" value={selecionada.horario || '—'} />
-              <Detail label="Loteria" value={selecionada.loteria || '—'} />
-              <Detail label="Estado" value={selecionada.estado || '—'} />
+              
+              {/* Data e hora */}
+              {selecionada.dataConcurso && (
+                <Detail
+                  label="Data e hora"
+                  value={new Date(selecionada.dataConcurso).toLocaleString('pt-BR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                  })}
+                />
+              )}
+              
+              {/* Loteria e horário */}
+              {(selecionada.loteria || selecionada.horario) && (
+                <Detail
+                  label="Loteria / Horário"
+                  value={[selecionada.loteria, selecionada.horario].filter(Boolean).join(' • ') || '—'}
+                />
+              )}
+              
+              {selecionada.estado && <Detail label="Estado" value={selecionada.estado} />}
             </div>
 
             {selecionada.detalhes && (
-              <div className="mt-6 rounded-lg border border-gray-100 bg-gray-50 p-4 text-sm text-gray-800">
-                <h3 className="mb-2 font-semibold text-gray-900">Palpites</h3>
+              <div className="mt-6 space-y-4">
+                {/* Palpites */}
+                <div className="rounded-lg border border-gray-100 bg-gray-50 p-4 text-sm text-gray-800">
+                  <h3 className="mb-3 font-semibold text-gray-900">Palpites</h3>
 
-                {/* Palpites de animais (animalBets) */}
-                {Array.isArray(selecionada.detalhes?.betData?.animalBets) &&
-                  selecionada.detalhes.betData.animalBets.length > 0 && (
-                    <div className="mb-3 flex flex-wrap gap-2">
-                      {selecionada.detalhes.betData.animalBets.map((bet: number[], idx: number) => (
+                  {/* Palpites de animais (animalBets) */}
+                  {Array.isArray(selecionada.detalhes?.betData?.animalBets) &&
+                    selecionada.detalhes.betData.animalBets.length > 0 && (
+                      <div className="mb-3 flex flex-wrap gap-2">
+                        {selecionada.detalhes.betData.animalBets.map((bet: number[], idx: number) => (
+                          <span
+                            key={idx}
+                            className="flex items-center gap-2 rounded-lg bg-amber-200 px-3 py-1 text-xs font-semibold text-gray-900"
+                          >
+                            {bet.map((n) => String(n).padStart(2, '0')).join('-')}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                  {/* Palpites numéricos (numberBets) */}
+                  {Array.isArray(selecionada.detalhes?.betData?.numberBets) &&
+                    selecionada.detalhes.betData.numberBets.length > 0 && (
+                      <div className="mb-3 flex flex-wrap gap-2">
+                        {selecionada.detalhes.betData.numberBets.map((num: string, idx: number) => (
+                          <span
+                            key={idx}
+                            className="flex items-center gap-2 rounded-lg bg-blue-200 px-3 py-1 text-xs font-semibold text-gray-900"
+                          >
+                            {num}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                  {/* Fallback: JSON bruto se não houver campos conhecidos */}
+                  {!selecionada.detalhes?.betData?.animalBets &&
+                    !selecionada.detalhes?.betData?.numberBets &&
+                    !selecionada.detalhes?.betData?.numbers && (
+                      <pre className="whitespace-pre-wrap text-xs text-gray-700">
+                        {JSON.stringify(selecionada.detalhes, null, 2)}
+                      </pre>
+                    )}
+                </div>
+
+                {/* Resultado oficial (se liquidado) */}
+                {selecionada.detalhes?.resultadoOficial && (
+                  <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-gray-800">
+                    <h3 className="mb-2 font-semibold text-gray-900">Resultado Oficial</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {selecionada.detalhes.resultadoOficial.prizes?.map((milhar: number, idx: number) => (
                         <span
                           key={idx}
-                          className="flex items-center gap-2 rounded-lg bg-amber-200 px-3 py-1 text-xs font-semibold text-gray-900"
+                          className="rounded-lg bg-white px-2 py-1 text-xs font-semibold text-gray-900"
                         >
-                          {bet.map((n) => String(n).padStart(2, '0')).join('-')}
+                          {String(milhar).padStart(4, '0')}
                         </span>
                       ))}
                     </div>
-                  )}
-
-                {/* Números ou outros detalhes se existirem */}
-                {selecionada.detalhes?.betData?.numbers && (
-                  <div className="mb-2 text-xs text-gray-800">
-                    <span className="font-semibold text-gray-900">Números:</span>{' '}
-                    {selecionada.detalhes.betData.numbers.join(', ')}
                   </div>
                 )}
 
-                {/* Fallback: JSON bruto se não houver campos conhecidos */}
-                {!selecionada.detalhes?.betData?.animalBets &&
-                  !selecionada.detalhes?.betData?.numbers && (
-                    <pre className="whitespace-pre-wrap text-xs text-gray-700">
-                      {JSON.stringify(selecionada.detalhes, null, 2)}
-                    </pre>
-                  )}
+                {/* Resultado instantâneo (se instantânea) */}
+                {selecionada.detalhes?.resultadoInstantaneo && (
+                  <div className="rounded-lg border border-purple-200 bg-purple-50 p-4 text-sm text-gray-800">
+                    <h3 className="mb-2 font-semibold text-gray-900">Resultado Instantâneo</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {selecionada.detalhes.resultadoInstantaneo.prizes?.map((milhar: number, idx: number) => (
+                        <span
+                          key={idx}
+                          className="rounded-lg bg-white px-2 py-1 text-xs font-semibold text-gray-900"
+                        >
+                          {String(milhar).padStart(4, '0')}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

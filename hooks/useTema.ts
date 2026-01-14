@@ -12,6 +12,9 @@ interface Tema {
     sucesso: string
     texto: string
     textoSecundario: string
+    textoLink?: string
+    textoParagrafo?: string
+    textoTitulo?: string
     fundo: string
     fundoSecundario: string
   }
@@ -66,6 +69,9 @@ export function useTema() {
     root.style.setProperty('--tema-sucesso', temaData.cores.sucesso)
     root.style.setProperty('--tema-texto', temaData.cores.texto)
     root.style.setProperty('--tema-texto-secundario', temaData.cores.textoSecundario)
+    root.style.setProperty('--tema-texto-link', temaData.cores.textoLink || temaData.cores.primaria)
+    root.style.setProperty('--tema-texto-paragrafo', temaData.cores.textoParagrafo || temaData.cores.texto)
+    root.style.setProperty('--tema-texto-titulo', temaData.cores.textoTitulo || temaData.cores.texto)
     root.style.setProperty('--tema-fundo', temaData.cores.fundo)
     root.style.setProperty('--tema-fundo-secundario', temaData.cores.fundoSecundario)
   }

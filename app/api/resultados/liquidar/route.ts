@@ -345,32 +345,100 @@ export async function POST(request: NextRequest) {
                 ]
                 
                 // Adicionar variações comuns baseadas no nome
+                // Baseado nos nomes REAIS que aparecem na API externa (bichocerto.com)
+                // Analisando as imagens fornecidas, esses são os nomes exatos:
+                
                 if (nomeBase.includes('pt rio')) {
-                  nomesPossiveis.push('pt rio de janeiro', 'pt-rio', 'pt-rio de janeiro', 'mpt-rio', 'mpt rio')
+                  nomesPossiveis.push(
+                    'pt rio de janeiro',  // Formato exato da API
+                    'pt-rio', 
+                    'pt-rio de janeiro', 
+                    'mpt-rio', 
+                    'mpt rio',
+                    'maluquinha rj',  // Maluquinha RJ também aparece na API
+                    'maluquinha rio de janeiro',
+                    'maluquinha'  // Nome simples
+                  )
                 }
                 if (nomeBase.includes('pt bahia')) {
-                  nomesPossiveis.push('pt-ba', 'maluca bahia')
+                  nomesPossiveis.push(
+                    'pt bahia',  // Formato exato da API
+                    'pt-ba', 
+                    'maluca bahia',  // Formato exato da API
+                    'maluca ba',  // Formato exato da API
+                    'maluquinha bahia',
+                    'para todos bahia',  // Pode aparecer como "Para Todos Bahia"
+                    'para-todos bahia'
+                  )
                 }
                 if (nomeBase.includes('pt sp')) {
-                  nomesPossiveis.push('pt-sp', 'pt sp bandeirantes', 'pt-sp/bandeirantes', 'bandeirantes', 'pt sp (band)')
+                  nomesPossiveis.push(
+                    'pt-sp/bandeirantes',  // Formato exato da API (com barra)
+                    'pt-sp bandeirantes',  // Formato alternativo
+                    'pt sp bandeirantes', 
+                    'pt-sp/bandeirantes',
+                    'bandeirantes',  // Nome simples
+                    'band',  // Abreviação
+                    'pt sp (band)',
+                    'pt-sp'
+                  )
                 }
                 if (nomeBase.includes('look')) {
-                  nomesPossiveis.push('look goiás', 'look goias')
+                  nomesPossiveis.push(
+                    'look goiás',  // Formato exato da API
+                    'look goias',
+                    'look-go',  // Formato que aparece na API (com hífen)
+                    'look'  // Nome simples
+                  )
                 }
                 if (nomeBase.includes('lotep')) {
-                  nomesPossiveis.push('pt paraiba/lotep', 'pt paraiba', 'pt paraíba', 'pt-pb')
+                  nomesPossiveis.push(
+                    'pt paraiba/lotep',  // Formato exato da API (com barra)
+                    'pt paraiba', 
+                    'pt paraíba', 
+                    'pt-pb',
+                    'lotep',  // Nome simples que aparece
+                    'pt paraiba/lotep'
+                  )
                 }
                 if (nomeBase.includes('lotece')) {
-                  nomesPossiveis.push('pt ceara', 'pt ceará')
+                  nomesPossiveis.push(
+                    'lotece',  // Nome simples que aparece na API
+                    'pt ceara', 
+                    'pt ceará',
+                    'lotece (tarde 1)',  // Variações com horários
+                    'lotece (tarde 2)',
+                    'lotece (manhã)'
+                  )
                 }
                 if (nomeBase.includes('nacional')) {
-                  nomesPossiveis.push('loteria nacional')
+                  nomesPossiveis.push(
+                    'loteria nacional',  // Formato completo
+                    'nacional',  // Nome simples que aparece na API
+                    'loteria nacional'
+                  )
                 }
                 if (nomeBase.includes('federal')) {
-                  nomesPossiveis.push('loteria federal')
+                  nomesPossiveis.push(
+                    'loteria federal',
+                    'federal'  // Nome simples
+                  )
                 }
                 if (nomeBase.includes('para todos')) {
-                  nomesPossiveis.push('para-todos')
+                  nomesPossiveis.push(
+                    'para todos',  // Nome simples
+                    'para-todos',
+                    'para todos bahia'
+                  )
+                }
+                
+                // Adicionar mapeamentos para extrações que aparecem na API mas podem não estar cadastradas
+                // Essas são variações que podem aparecer nos resultados
+                if (nomeBase.includes('boa sorte')) {
+                  nomesPossiveis.push('boa sorte goiás', 'boa sorte')
+                }
+                if (nomeBase.includes('maluquinha')) {
+                  nomesPossiveis.push('maluquinha rj', 'maluquinha rio de janeiro', 'maluquinha')
                 }
                 
                 console.log(`   - Loteria ID ${aposta.loteria} → Nome: "${loteriaNome}" (ativa: ${extracao.active})`)
@@ -403,16 +471,37 @@ export async function POST(request: NextRequest) {
             const rLoteria = (r.loteria?.toLowerCase() || '').trim()
             
             // Verificar se o nome da loteria corresponde a algum dos nomes possíveis
+            // Normalizar ambos os lados para comparação mais flexível
+            const normalizar = (str: string) => str.toLowerCase().trim().replace(/\s+/g, ' ').replace(/\//g, '/')
+            const rLoteriaNormalizada = normalizar(rLoteria)
+            
             const match = nomesPossiveis.some(nome => {
-              const nomeLower = nome.toLowerCase().trim()
-              return rLoteria === nomeLower ||
-                     rLoteria.includes(nomeLower) ||
-                     nomeLower.includes(rLoteria) ||
-                     // Match por palavras-chave principais (ex: "pt rio" em "pt rio de janeiro")
-                     (nomeLower.length > 3 && rLoteria.length > 3 && 
-                      nomeLower.split(/\s+|-|\//).some(palavra => 
-                        palavra.length > 2 && rLoteria.includes(palavra)
-                      ))
+              const nomeLower = normalizar(nome)
+              
+              // Match exato
+              if (rLoteriaNormalizada === nomeLower) return true
+              
+              // Match por inclusão (um contém o outro)
+              if (rLoteriaNormalizada.includes(nomeLower) || nomeLower.includes(rLoteriaNormalizada)) return true
+              
+              // Match por palavras-chave principais (ex: "pt rio" em "pt rio de janeiro")
+              const palavrasNome = nomeLower.split(/\s+|-|\//).filter(p => p.length > 2)
+              const palavrasLoteria = rLoteriaNormalizada.split(/\s+|-|\//).filter(p => p.length > 2)
+              
+              // Se pelo menos 2 palavras-chave principais coincidem
+              if (palavrasNome.length >= 2 && palavrasLoteria.length >= 2) {
+                const palavrasComuns = palavrasNome.filter(p => palavrasLoteria.some(pl => pl.includes(p) || p.includes(pl)))
+                if (palavrasComuns.length >= 2) return true
+              }
+              
+              // Match por palavra-chave única se for significativa (ex: "bandeirantes", "lotep", "lotece")
+              const palavrasSignificativas = ['bandeirantes', 'lotep', 'lotece', 'look', 'nacional', 'federal', 'maluquinha', 'maluca']
+              const temPalavraSignificativa = palavrasSignificativas.some(palavra => 
+                nomeLower.includes(palavra) && rLoteriaNormalizada.includes(palavra)
+              )
+              if (temPalavraSignificativa) return true
+              
+              return false
             })
             
             return match

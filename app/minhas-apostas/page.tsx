@@ -7,21 +7,24 @@ import BottomNav from '@/components/BottomNav'
 
 interface Aposta {
   id: number
-  concurso: string
-  loteria: string
-  estado: string
-  horario: string
-  data: string
-  aposta: string
+  concurso?: string | null
+  loteria?: string | null
+  estado?: string | null
+  horario?: string | null
+  dataConcurso?: string | null
+  modalidade?: string | null
+  aposta?: string | null
   valor: number
-  retorno: number
+  retornoPrevisto?: number | null
   status: 'pendente' | 'ganhou' | 'perdeu'
+  detalhes?: any
 }
 
 export default function MinhasApostasPage() {
   const [apostas, setApostas] = useState<Aposta[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [selecionada, setSelecionada] = useState<Aposta | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -69,21 +72,24 @@ export default function MinhasApostasPage() {
                     <th className="px-4 py-3">Valor</th>
                     <th className="px-4 py-3">Retorno</th>
                     <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {apostas.map((a) => (
                     <tr key={a.id} className="border-b border-gray-100 text-sm text-gray-800">
                       <td className="px-4 py-3">
-                        <div className="font-semibold text-gray-900">{a.concurso}</div>
+                        <div className="font-semibold text-gray-900">{a.concurso || '—'}</div>
                         <div className="text-xs text-gray-500">
-                          {a.loteria} • {a.estado} • {a.horario}
+                          {[a.loteria, a.estado, a.horario].filter(Boolean).join(' • ')}
                         </div>
                       </td>
-                      <td className="px-4 py-3">{a.aposta}</td>
-                      <td className="px-4 py-3">{a.data}</td>
-                      <td className="px-4 py-3">R$ {a.valor.toFixed(2)}</td>
-                      <td className="px-4 py-3">R$ {a.retorno.toFixed(2)}</td>
+                      <td className="px-4 py-3">{a.aposta || a.modalidade || '—'}</td>
+                      <td className="px-4 py-3">
+                        {a.dataConcurso ? new Date(a.dataConcurso).toLocaleString('pt-BR') : '—'}
+                      </td>
+                      <td className="px-4 py-3">R$ {Number(a.valor || 0).toFixed(2)}</td>
+                      <td className="px-4 py-3">R$ {Number(a.retornoPrevisto || 0).toFixed(2)}</td>
                       <td className="px-4 py-3">
                         <span
                           className={`rounded-full px-2 py-1 text-xs font-semibold ${
@@ -97,6 +103,14 @@ export default function MinhasApostasPage() {
                           {a.status}
                         </span>
                       </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => setSelecionada(a)}
+                          className="text-sm font-semibold text-blue hover:text-blue-700"
+                        >
+                          Ver detalhes
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -107,6 +121,65 @@ export default function MinhasApostasPage() {
       </main>
       <Footer />
       <BottomNav />
+
+      {selecionada && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Detalhes da aposta</h2>
+                <p className="text-sm text-gray-500">
+                  {selecionada.concurso || '—'} •{' '}
+                  {selecionada.dataConcurso
+                    ? new Date(selecionada.dataConcurso).toLocaleString('pt-BR')
+                    : '—'}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelecionada(null)}
+                className="rounded-full bg-gray-100 px-3 py-1 text-sm font-semibold text-gray-700 hover:bg-gray-200"
+              >
+                Fechar
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 text-sm text-gray-800">
+              <Detail label="Modalidade" value={selecionada.modalidade || '—'} />
+              <Detail label="Status" value={selecionada.status} />
+              <Detail label="Aposta" value={selecionada.aposta || '—'} />
+              <Detail
+                label="Valor apostado"
+                value={`R$ ${Number(selecionada.valor || 0).toFixed(2)}`}
+              />
+              <Detail
+                label="Retorno previsto"
+                value={`R$ ${Number(selecionada.retornoPrevisto || 0).toFixed(2)}`}
+              />
+              <Detail label="Horário" value={selecionada.horario || '—'} />
+              <Detail label="Loteria" value={selecionada.loteria || '—'} />
+              <Detail label="Estado" value={selecionada.estado || '—'} />
+            </div>
+
+            {selecionada.detalhes && (
+              <div className="mt-6 rounded-lg border border-gray-100 bg-gray-50 p-4 text-sm text-gray-800">
+                <h3 className="mb-2 font-semibold text-gray-900">Palpites</h3>
+                <pre className="whitespace-pre-wrap text-xs text-gray-700">
+                  {JSON.stringify(selecionada.detalhes, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-gray-100 bg-white px-3 py-2">
+      <p className="text-xs text-gray-500">{label}</p>
+      <p className="font-semibold text-gray-900">{value}</p>
     </div>
   )
 }

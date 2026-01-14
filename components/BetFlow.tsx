@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { BetData } from '@/types/bet'
+import { ANIMALS } from '@/data/animals'
+import { MODALITIES } from '@/data/modalities'
 import ProgressIndicator from './ProgressIndicator'
 import SpecialQuotationsModal from './SpecialQuotationsModal'
 import ModalitySelection from './ModalitySelection'
@@ -29,8 +31,38 @@ export default function BetFlow() {
   const [betData, setBetData] = useState<BetData>(INITIAL_BET_DATA)
   const [showSpecialModal, setShowSpecialModal] = useState(false)
   const [activeTab, setActiveTab] = useState<'bicho' | 'loteria'>('bicho')
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
+
+  const MAX_PALPITES = 10
+
+  const requiredAnimalsPerBet = useMemo(() => getRequiredAnimalsPerBet(betData.modality), [betData.modality])
+
+  const animalsValid =
+    betData.animals.length > 0 &&
+    betData.animals.length <= requiredAnimalsPerBet * MAX_PALPITES &&
+    betData.animals.length % requiredAnimalsPerBet === 0
+
+  useEffect(() => {
+    const loadMe = async () => {
+      try {
+        const res = await fetch('/api/auth/me')
+        const data = await res.json()
+        setIsAuthenticated(Boolean(data?.user))
+      } catch (error) {
+        setIsAuthenticated(false)
+      }
+    }
+    loadMe()
+  }, [])
 
   const handleNext = () => {
+    if (currentStep === 2 && !animalsValid) return
+    const nextStep = currentStep + 1
+    if (nextStep >= 3 && !isAuthenticated) {
+      alert('Você precisa estar logado para continuar. Faça login para usar seu saldo.')
+      window.location.href = '/login'
+      return
+    }
     if (currentStep < 5) {
       setCurrentStep(currentStep + 1)
     }
@@ -52,9 +84,51 @@ export default function BetFlow() {
   }
 
   const handleConfirm = () => {
-    // Aqui você implementaria a lógica de confirmação da aposta
-    console.log('Aposta confirmada:', betData)
-    alert('Aposta confirmada! (Implementar integração com API)')
+    const modalityName = MODALITIES.find((m) => String(m.id) === betData.modality)?.name || 'Modalidade'
+    const animalNames = betData.animals
+      .map((id) => ANIMALS.find((a) => a.id === id)?.name || `Animal ${id}`)
+      .join(', ')
+
+    const payload = {
+      concurso: betData.location ? `Extração ${betData.location}` : null,
+      loteria: betData.location,
+      estado: undefined,
+      horario: betData.specialTime || null,
+      dataConcurso: new Date().toISOString(),
+      modalidade: modalityName,
+      aposta: `${modalityName}: ${animalNames}`,
+      valor: betData.amount,
+      retornoPrevisto: 0,
+      status: 'pendente',
+      useBonus: betData.useBonus,
+      detalhes: {
+        betData,
+        modalityName,
+        animalNames,
+      },
+    }
+
+    fetch('/api/apostas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload),
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          throw new Error(data.error || 'Erro ao criar aposta')
+        }
+        alert('Aposta registrada com sucesso!')
+      })
+      .catch((err) => {
+        const msg = err.message || 'Erro ao registrar aposta'
+        if (msg.toLowerCase().includes('saldo insuficiente')) {
+          alert('Saldo insuficiente. Verifique seu saldo e bônus disponíveis.')
+        } else {
+          alert(msg)
+        }
+      })
   }
 
   const renderStep = () => {
@@ -109,6 +183,8 @@ export default function BetFlow() {
         return (
           <AnimalSelection
             selectedAnimals={betData.animals}
+            requiredPerBet={requiredAnimalsPerBet}
+            maxPalpites={MAX_PALPITES}
             onAnimalToggle={handleAnimalToggle}
           />
         )
@@ -168,6 +244,13 @@ export default function BetFlow() {
       {/* Step Content */}
       <div className="mb-6">{renderStep()}</div>
 
+      {/* Aviso de login necessário a partir da etapa 3 */}
+      {isAuthenticated === false && currentStep >= 2 && (
+        <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Para avançar para a etapa 3 você precisa fazer login (usa o saldo da carteira).
+        </div>
+      )}
+
       {/* Navigation Buttons */}
       {currentStep < 5 && (
         <div className="flex gap-4">
@@ -181,7 +264,11 @@ export default function BetFlow() {
           )}
           <button
             onClick={handleNext}
-            disabled={currentStep === 1 && !betData.modality && activeTab === 'bicho'}
+            disabled={
+              (currentStep === 1 && !betData.modality && activeTab === 'bicho') ||
+              (currentStep === 2 && !animalsValid) ||
+              (currentStep >= 2 && isAuthenticated === false)
+            }
             className="flex-1 rounded-lg bg-yellow px-6 py-3 font-bold text-blue-950 hover:bg-yellow/90 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
           >
             Continuar
@@ -190,4 +277,20 @@ export default function BetFlow() {
       )}
     </div>
   )
+}
+
+function getRequiredAnimalsPerBet(modalityId: string | null): number {
+  const id = modalityId ? Number(modalityId) : 0
+  switch (id) {
+    case 2: // Dupla de Grupo
+      return 2
+    case 3: // Terno de Grupo
+      return 3
+    case 4: // Quadra de Grupo
+      return 4
+    case 5: // Quina de Grupo (se usada)
+      return 5
+    default:
+      return 1 // Grupo simples ou outras modalidades
+  }
 }

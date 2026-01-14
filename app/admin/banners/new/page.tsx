@@ -21,6 +21,54 @@ export default function NewBannerPage() {
     order: 1,
   })
 
+  const validateBannerImage = (file: File): Promise<string | null> => {
+    return new Promise((resolve) => {
+      const img = new Image()
+      const url = URL.createObjectURL(file)
+      
+      img.onload = () => {
+        URL.revokeObjectURL(url)
+        const width = img.width
+        const height = img.height
+        
+        // Validar proporção 16:9 (com tolerância de ±5%)
+        const aspectRatio = width / height
+        const idealRatio = 16 / 9
+        const tolerance = 0.05
+        const minRatio = idealRatio * (1 - tolerance)
+        const maxRatio = idealRatio * (1 + tolerance)
+
+        if (aspectRatio < minRatio || aspectRatio > maxRatio) {
+          resolve(`Proporção incorreta. Use 16:9 (ex.: 1920×1080 ou 1600×900).\nAtual: ${width}×${height}px (${aspectRatio.toFixed(2)}:1)`)
+          return
+        }
+
+        // Validar tamanho mínimo recomendado
+        const minWidth = 1200
+        const minHeight = 675
+        if (width < minWidth || height < minHeight) {
+          resolve(`Dimensões muito pequenas. Mínimo recomendado: ${minWidth}×${minHeight}px.\nAtual: ${width}×${height}px`)
+          return
+        }
+
+        // Validar tamanho do arquivo (recomendado < 500KB)
+        const recommendedSize = 500 * 1024 // 500KB
+        if (file.size > recommendedSize) {
+          console.warn(`⚠️ Banner grande: ${(file.size / 1024).toFixed(0)}KB (recomendado < 500KB)`)
+        }
+
+        resolve(null) // Válido
+      }
+      
+      img.onerror = () => {
+        URL.revokeObjectURL(url)
+        resolve('Erro ao ler a imagem')
+      }
+      
+      img.src = url
+    })
+  }
+
   const handleFileUpload = async (file: File, type: 'banner' | 'logo') => {
     if (type === 'banner') {
       setUploadingBanner(true)
@@ -29,6 +77,20 @@ export default function NewBannerPage() {
     }
 
     try {
+      // Validar banner antes de fazer upload
+      if (type === 'banner') {
+        const validationError = await validateBannerImage(file)
+        if (validationError) {
+          alert(`❌ ${validationError}\n\n💡 Dicas:\n- Proporção ideal: 16:9 (ex.: 1920×1080 ou 1600×900)\n- Tamanho mínimo: 1200×675px\n- Formato: JPG ou WebP\n- Tamanho do arquivo: < 500KB (máximo 5MB)\n- Deixe margem de segurança nas bordas`)
+          if (type === 'banner') {
+            setUploadingBanner(false)
+          } else {
+            setUploadingLogo(false)
+          }
+          return
+        }
+      }
+
       const uploadFormData = new FormData()
       uploadFormData.append('file', file)
       uploadFormData.append('type', type)
@@ -139,6 +201,16 @@ export default function NewBannerPage() {
         {/* Upload de Banner */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Imagem do Banner</label>
+          <div className="mb-2 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+            <strong>📐 Especificações recomendadas:</strong>
+            <ul className="mt-1 ml-4 list-disc space-y-1">
+              <li>Proporção: <strong>16:9</strong> (ex.: 1920×1080 ou 1600×900)</li>
+              <li>Tamanho mínimo: <strong>1200×675px</strong></li>
+              <li>Formato: <strong>JPG ou WebP</strong></li>
+              <li>Tamanho do arquivo: <strong>&lt; 500KB</strong> (máximo 5MB)</li>
+              <li>💡 Deixe margem de segurança nas bordas (texto e botões afastados)</li>
+            </ul>
+          </div>
           <div className="space-y-4">
             {formData.bannerImage && (
               <div className="relative w-full h-48 border-2 border-gray-300 rounded-lg overflow-hidden">

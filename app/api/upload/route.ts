@@ -18,13 +18,23 @@ export async function POST(request: NextRequest) {
     // Validar tipo de arquivo
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
     if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json({ error: 'Tipo de arquivo não permitido' }, { status: 400 })
+      return NextResponse.json({ error: 'Tipo de arquivo não permitido. Use JPG, PNG ou WebP' }, { status: 400 })
     }
 
-    // Validar tamanho (max 5MB)
+    // Validar tamanho (max 5MB, preferir < 500KB)
     const maxSize = 5 * 1024 * 1024 // 5MB
+    const recommendedSize = 500 * 1024 // 500KB
     if (file.size > maxSize) {
-      return NextResponse.json({ error: 'Arquivo muito grande (máximo 5MB)' }, { status: 400 })
+      return NextResponse.json({ error: 'Arquivo muito grande (máximo 5MB, recomendado < 500KB)' }, { status: 400 })
+    }
+    if (file.size > recommendedSize && type === 'banner') {
+      console.warn(`⚠️ Banner grande: ${(file.size / 1024).toFixed(0)}KB (recomendado < 500KB)`)
+    }
+
+    // Validação de dimensões para banners é feita no frontend
+    // Backend apenas valida tamanho e tipo de arquivo
+    if (type === 'banner' && file.size > recommendedSize) {
+      console.warn(`⚠️ Banner grande: ${(file.size / 1024).toFixed(0)}KB (recomendado < 500KB)`)
     }
 
     // Determinar diretório baseado no tipo

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import BottomNav from '@/components/BottomNav'
+import DepositPixModal from '@/components/DepositPixModal'
 
 interface UserInfo {
   nome: string
@@ -25,6 +26,8 @@ interface Transaction {
 export default function CarteiraPage() {
   const [user, setUser] = useState<UserInfo | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showDepositModal, setShowDepositModal] = useState(false)
+  const [depositValue, setDepositValue] = useState('25,00')
 
   // Placeholder de transações (ajuste quando houver endpoint de transações)
   const [transactions] = useState<Transaction[]>([])
@@ -167,13 +170,34 @@ export default function CarteiraPage() {
                 <div className="flex items-center gap-2 rounded-lg border-2 border-gray-200 px-3 py-2">
                   <span className="text-gray-700">R$</span>
                   <input
+                    type="text"
+                    value={depositValue}
+                    onChange={(e) => {
+                      // Formatar como moeda brasileira
+                      const value = e.target.value.replace(/\D/g, '')
+                      if (value === '') {
+                        setDepositValue('0,00')
+                      } else {
+                        const formatted = (Number(value) / 100).toFixed(2).replace('.', ',')
+                        setDepositValue(formatted)
+                      }
+                    }}
                     className="w-full border-none text-base outline-none"
-                    defaultValue="25,00"
                     aria-label="Valor do depósito"
+                    placeholder="0,00"
                   />
                 </div>
 
-                <button className="w-full rounded-lg bg-yellow px-4 py-3 text-center font-bold text-blue-950 hover:bg-yellow/90 transition-colors">
+                <button
+                  onClick={() => {
+                    const valor = parseFloat(depositValue.replace(',', '.'))
+                    if (valor > 0) {
+                      setShowDepositModal(true)
+                    }
+                  }}
+                  disabled={parseFloat(depositValue.replace(',', '.')) <= 0}
+                  className="w-full rounded-lg bg-yellow px-4 py-3 text-center font-bold text-blue-950 hover:bg-yellow/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                   Efetuar depósito
                 </button>
               </div>
@@ -242,6 +266,12 @@ export default function CarteiraPage() {
 
       <Footer />
       <BottomNav />
+
+      <DepositPixModal
+        isOpen={showDepositModal}
+        valor={parseFloat(depositValue.replace(',', '.'))}
+        onClose={() => setShowDepositModal(false)}
+      />
     </div>
   )
 }

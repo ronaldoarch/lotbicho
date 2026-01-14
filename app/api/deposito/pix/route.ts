@@ -48,6 +48,16 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // API Key é obrigatória - deve estar nas variáveis de ambiente
+    const apiKey = process.env.RECEBA_API_KEY
+    if (!apiKey) {
+      console.error('RECEBA_API_KEY não configurado nas variáveis de ambiente')
+      return NextResponse.json(
+        { error: 'Configuração da API não encontrada. Entre em contato com o suporte.' },
+        { status: 500 }
+      )
+    }
+
     // Criar pagamento PIX via Receba Online
     // Documentação: https://docs.receba.online/
     // Endpoint: POST /api/v1/transaction/pix/cashin
@@ -64,7 +74,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Criar pagamento PIX via Receba Online
-    const pixResponse = await recebaCreatePix({}, pixPayload)
+    // Passar a API key explicitamente para garantir que está sendo usada
+    const pixResponse = await recebaCreatePix({ apiKey }, pixPayload)
 
     // A resposta da API retorna: { transaction: [{ qr_code, qr_code_image, id, status, ... }] }
     const transaction = pixResponse.transaction?.[0]

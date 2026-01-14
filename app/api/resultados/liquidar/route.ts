@@ -10,10 +10,54 @@ import {
 import { parsePosition } from '@/lib/position-parser'
 import { ANIMALS } from '@/data/animals'
 import { ResultadoItem } from '@/types/resultados'
+import { extracoes } from '@/data/extracoes'
 
 // Configurar timeout maior para operações longas
 export const maxDuration = 120 // 120 segundos (2 minutos) para processar muitas apostas
 export const dynamic = 'force-dynamic'
+
+/**
+ * Verifica se já passou o horário de apuração para uma extração
+ * @param extracaoId ID da extração (loteria)
+ * @param dataConcurso Data do concurso da aposta
+ * @returns true se já passou o horário de apuração, false caso contrário
+ */
+function jaPassouHorarioApuracao(extracaoId: number | string | null, dataConcurso: Date | null): boolean {
+  if (!extracaoId || !dataConcurso) {
+    // Se não tem extração ou data, não pode verificar - permite liquidar (comportamento antigo)
+    return true
+  }
+
+  const extracao = extracoes.find(e => e.id === Number(extracaoId))
+  if (!extracao || !extracao.closeTime) {
+    // Se não encontrou extração ou não tem closeTime, permite liquidar
+    return true
+  }
+
+  // Parsear horário de apuração (formato HH:MM)
+  const [horas, minutos] = extracao.closeTime.split(':').map(Number)
+  
+  // Criar data/hora de apuração no dia do concurso
+  const dataApuracao = new Date(dataConcurso)
+  dataApuracao.setHours(horas, minutos, 0, 0)
+  
+  // Se a data do concurso for hoje, verificar se já passou
+  const agora = new Date()
+  const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate())
+  const dataConcursoSemHora = new Date(dataConcurso.getFullYear(), dataConcurso.getMonth(), dataConcurso.getDate())
+  
+  // Se for hoje, usar hora atual; se for passado, já pode liquidar; se for futuro, não pode
+  if (dataConcursoSemHora.getTime() === hoje.getTime()) {
+    // Mesmo dia: verificar se já passou o horário
+    return agora >= dataApuracao
+  } else if (dataConcursoSemHora.getTime() < hoje.getTime()) {
+    // Dia passado: já pode liquidar
+    return true
+  } else {
+    // Dia futuro: não pode liquidar ainda
+    return false
+  }
+}
 
 /**
  * GET /api/resultados/liquidar
@@ -400,6 +444,18 @@ export async function POST(request: NextRequest) {
         console.log(`   - Data da aposta: ${aposta.dataConcurso?.toISOString().split('T')[0]}`)
         console.log(`   - Resultados antes do filtro: ${resultados.length}`)
         console.log(`   - Resultados após filtro: ${resultadosFiltrados.length}`)
+        
+        // Verificar se já passou o horário de apuração
+        const extracaoId = aposta.loteria ? Number(aposta.loteria) : null
+        const podeLiquidar = jaPassouHorarioApuracao(extracaoId, aposta.dataConcurso)
+        
+        if (!podeLiquidar) {
+          const extracao = extracoes.find(e => e.id === Number(extracaoId))
+          const horarioApuracao = extracao?.closeTime || 'N/A'
+          console.log(`   ⏰ Ainda não passou o horário de apuração (${horarioApuracao})`)
+          console.log(`   ⏸️  Pulando aposta ${aposta.id} - aguardando apuração`)
+          continue
+        }
         
         if (resultadosFiltrados.length === 0) {
           console.log(`   ❌ Nenhum resultado encontrado para aposta ${aposta.id}`)

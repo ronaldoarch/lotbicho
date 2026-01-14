@@ -194,6 +194,8 @@ export async function POST(request: NextRequest) {
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
                      (request.headers.get('host') ? `https://${request.headers.get('host')}` : 'http://localhost:3000')
       
+      // Buscar TODOS os resultados sem filtros de data/localização
+      // A liquidação precisa de todos os resultados disponíveis para poder liquidar apostas de qualquer extração/horário
       const resultadosResponse = await fetch(
         `${baseUrl}/api/resultados`,
         { 

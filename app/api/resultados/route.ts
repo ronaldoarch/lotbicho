@@ -237,8 +237,21 @@ export async function GET(req: NextRequest) {
     const organizados = data?.organizados || {}
 
     let results: ResultadoItem[] = []
+    let totalTabelas = 0
+    let totalHorarios = 0
+    
     Object.entries(organizados).forEach(([tabela, horarios]) => {
-      Object.entries(horarios as Record<string, any[]>).forEach(([horario, lista]) => {
+      totalTabelas++
+      const horariosObj = horarios as Record<string, any[]>
+      const horariosCount = Object.keys(horariosObj).length
+      totalHorarios += horariosCount
+      
+      // Log para debug: mostrar quantos horários cada extração tem
+      if (horariosCount > 0) {
+        console.log(`📊 Extração "${tabela}": ${horariosCount} horário(s) - ${Object.keys(horariosObj).join(', ')}`)
+      }
+      
+      Object.entries(horariosObj).forEach(([horario, lista]) => {
         const arr = (lista || []).map((item: any, idx: number) => {
           const estado =
             item.estado || inferUfFromName(item.estado) || inferUfFromName(tabela) || inferUfFromName(item.local)
@@ -266,12 +279,18 @@ export async function GET(req: NextRequest) {
         results = results.concat(arr)
       })
     })
+    
+    console.log(`📈 Total processado: ${totalTabelas} extrações, ${totalHorarios} horários, ${results.length} resultados`)
 
     // Filtro por data (usa dataExtracao/data_extracao)
+    // IMPORTANTE: Se não houver filtro de data, retornar TODOS os resultados disponíveis
+    // Isso é necessário para a liquidação poder processar apostas de qualquer data
     if (dateFilter) {
       results = results.filter((r) => matchesDateFilter(r.dataExtracao || r.date, dateFilter))
     }
     // Filtro por UF ou nome
+    // IMPORTANTE: Se não houver filtro de localização, retornar TODOS os resultados
+    // Isso garante que a liquidação tenha acesso a todos os resultados de todas as extrações
     if (uf) {
       results = results.filter((r) => (r.estado || '').toUpperCase() === uf)
     } else if (locationFilter) {
@@ -289,6 +308,15 @@ export async function GET(req: NextRequest) {
     results = Object.values(grouped)
       .map((arr) => orderByPosition(arr).slice(0, 7))
       .flat()
+    
+    // Log final: mostrar quantos grupos únicos foram criados
+    const gruposUnicos = new Set(Object.keys(grouped))
+    console.log(`✅ Resultados finais: ${gruposUnicos.size} grupos únicos (loteria|horário|data), ${results.length} resultados totais`)
+    
+    // Log de grupos únicos para debug
+    if (gruposUnicos.size > 0 && gruposUnicos.size <= 20) {
+      console.log(`   Grupos: ${Array.from(gruposUnicos).join(' | ')}`)
+    }
 
     const payload: ResultadosResponse = {
       results,

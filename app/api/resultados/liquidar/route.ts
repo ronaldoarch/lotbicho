@@ -6,6 +6,7 @@ import {
   type ModalityType,
   type InstantResult,
 } from '@/lib/bet-rules-engine'
+import { parsePosition } from '@/lib/position-parser'
 import { ANIMALS } from '@/data/animals'
 import { ResultadoItem } from '@/types/resultados'
 
@@ -256,19 +257,8 @@ export async function POST(request: NextRequest) {
 
         const modalityType = modalityMap[betData.modalityName || aposta.modalidade || ''] || 'GRUPO'
 
-        // Parsear posição
-        let pos_from = 1
-        let pos_to = 1
-        if (betData.position) {
-          if (betData.position === '1st') {
-            pos_from = 1
-            pos_to = 1
-          } else if (betData.position.includes('-')) {
-            const [from, to] = betData.position.split('-').map(Number)
-            pos_from = from || 1
-            pos_to = to || 1
-          }
-        }
+        // Parsear posição usando função helper
+        const { pos_from, pos_to } = parsePosition(betData.position)
 
         // Calcular valor por palpite
         const qtdPalpites = betData.animalBets.length

@@ -9,6 +9,7 @@ import {
   calcularValorTotalAposta,
   type ModalityType,
 } from '@/lib/bet-rules-engine'
+import { parsePosition } from '@/lib/position-parser'
 import { ANIMALS } from '@/data/animals'
 
 export async function GET() {
@@ -136,19 +137,8 @@ export async function POST(request: Request) {
 
         const modalityType = modalityMap[betData.modalityName || ''] || 'GRUPO'
 
-        // Parsear posição (ex: "1-5" -> pos_from=1, pos_to=5)
-        let pos_from = 1
-        let pos_to = 1
-        if (betData.position) {
-          if (betData.position === '1st') {
-            pos_from = 1
-            pos_to = 1
-          } else if (betData.position.includes('-')) {
-            const [from, to] = betData.position.split('-').map(Number)
-            pos_from = from || 1
-            pos_to = to || 1
-          }
-        }
+        // Parsear posição usando função helper
+        const { pos_from, pos_to } = parsePosition(betData.position)
 
         // Gerar resultado instantâneo
         resultadoInstantaneo = gerarResultadoInstantaneo(Math.max(pos_to, 7))

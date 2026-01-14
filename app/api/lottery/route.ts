@@ -73,14 +73,6 @@ const lotteries: LotteriesByRegion = {
       status: 'active',
       closingTime: null,
     },
-    {
-      id: 'ponto-coruja',
-      name: 'PONTO-CORUJA 22h',
-      uf: 'PO',
-      bonusPercent: 0,
-      status: 'active',
-      closingTime: null,
-    },
   ],
   'Rio de Janeiro': [
     {

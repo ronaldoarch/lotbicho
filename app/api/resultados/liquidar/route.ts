@@ -318,6 +318,7 @@ export async function POST(request: NextRequest) {
         // As extrações estão armazenadas como array estático em /api/admin/extracoes
         let loteriaNome = aposta.loteria
         let usarFiltroLoteria = true
+        let nomesPossiveis: string[] = [] // Lista de nomes possíveis para match flexível
         
         if (aposta.loteria && /^\d+$/.test(aposta.loteria)) {
           // É um ID numérico, buscar da lista estática de extrações
@@ -331,7 +332,49 @@ export async function POST(request: NextRequest) {
             if (extracao) {
               if (extracao.name && extracao.name !== '—') {
                 loteriaNome = extracao.name
+                
+                // Criar lista de nomes possíveis para match flexível
+                // A API externa pode retornar nomes com variações (maiúsculas/minúsculas, espaços, etc.)
+                const nomeBase = extracao.name.toLowerCase().trim()
+                nomesPossiveis = [
+                  nomeBase,
+                  extracao.name, // Nome original
+                  nomeBase.replace(/\s+/g, ' '), // Normalizar espaços
+                  nomeBase.replace(/\s+/g, '-'), // Com hífen
+                  nomeBase.replace(/\s+/g, '/'), // Com barra
+                ]
+                
+                // Adicionar variações comuns baseadas no nome
+                if (nomeBase.includes('pt rio')) {
+                  nomesPossiveis.push('pt rio de janeiro', 'pt-rio', 'pt-rio de janeiro', 'mpt-rio', 'mpt rio')
+                }
+                if (nomeBase.includes('pt bahia')) {
+                  nomesPossiveis.push('pt-ba', 'maluca bahia')
+                }
+                if (nomeBase.includes('pt sp')) {
+                  nomesPossiveis.push('pt-sp', 'pt sp bandeirantes', 'pt-sp/bandeirantes', 'bandeirantes', 'pt sp (band)')
+                }
+                if (nomeBase.includes('look')) {
+                  nomesPossiveis.push('look goiás', 'look goias')
+                }
+                if (nomeBase.includes('lotep')) {
+                  nomesPossiveis.push('pt paraiba/lotep', 'pt paraiba', 'pt paraíba', 'pt-pb')
+                }
+                if (nomeBase.includes('lotece')) {
+                  nomesPossiveis.push('pt ceara', 'pt ceará')
+                }
+                if (nomeBase.includes('nacional')) {
+                  nomesPossiveis.push('loteria nacional')
+                }
+                if (nomeBase.includes('federal')) {
+                  nomesPossiveis.push('loteria federal')
+                }
+                if (nomeBase.includes('para todos')) {
+                  nomesPossiveis.push('para-todos')
+                }
+                
                 console.log(`   - Loteria ID ${aposta.loteria} → Nome: "${loteriaNome}" (ativa: ${extracao.active})`)
+                console.log(`   - Nomes possíveis para match: ${nomesPossiveis.slice(0, 5).join(', ')}...`)
               } else {
                 console.log(`   - Extração ID ${aposta.loteria} encontrada mas sem nome válido: "${extracao.name}"`)
                 usarFiltroLoteria = false
@@ -345,24 +388,33 @@ export async function POST(request: NextRequest) {
             console.log(`   - Erro ao buscar extração por ID: ${error}`)
             usarFiltroLoteria = false
           }
+        } else {
+          // Se já é um nome, criar lista de variações possíveis
+          const nomeBase = (aposta.loteria || '').toLowerCase().trim()
+          nomesPossiveis = [nomeBase, aposta.loteria || '']
         }
 
         let resultadosFiltrados = resultados
 
         // Só filtrar por loteria se tiver nome válido e a extração foi encontrada
-        if (usarFiltroLoteria && loteriaNome) {
-          const loteriaLower = loteriaNome.toLowerCase().trim()
+        if (usarFiltroLoteria && loteriaNome && nomesPossiveis.length > 0) {
           const antes = resultadosFiltrados.length
           resultadosFiltrados = resultadosFiltrados.filter((r) => {
             const rLoteria = (r.loteria?.toLowerCase() || '').trim()
-            // Verificar se o nome da loteria contém ou é contido pela loteria da aposta
-            // Também verificar se algum dos nomes contém palavras-chave comuns
-            const match = rLoteria.includes(loteriaLower) || 
-                         loteriaLower.includes(rLoteria) ||
-                         // Fallback: verificar se ambos contêm palavras-chave similares
-                         (loteriaLower.length > 2 && rLoteria.length > 2 && 
-                          (loteriaLower.split(' ').some(p => rLoteria.includes(p)) ||
-                           rLoteria.split(' ').some(p => loteriaLower.includes(p))))
+            
+            // Verificar se o nome da loteria corresponde a algum dos nomes possíveis
+            const match = nomesPossiveis.some(nome => {
+              const nomeLower = nome.toLowerCase().trim()
+              return rLoteria === nomeLower ||
+                     rLoteria.includes(nomeLower) ||
+                     nomeLower.includes(rLoteria) ||
+                     // Match por palavras-chave principais (ex: "pt rio" em "pt rio de janeiro")
+                     (nomeLower.length > 3 && rLoteria.length > 3 && 
+                      nomeLower.split(/\s+|-|\//).some(palavra => 
+                        palavra.length > 2 && rLoteria.includes(palavra)
+                      ))
+            })
+            
             return match
           })
           console.log(`   - Após filtro de loteria "${loteriaNome}": ${resultadosFiltrados.length} resultados (antes: ${antes})`)
@@ -371,9 +423,23 @@ export async function POST(request: NextRequest) {
           if (resultadosFiltrados.length === 0 && antes > 0) {
             const loteriasUnicas = Array.from(new Set(resultados.slice(0, 10).map(r => r.loteria).filter(Boolean) as string[]))
             console.log(`   - Exemplos de loterias disponíveis: ${loteriasUnicas.join(', ')}`)
-            console.log(`   - ⚠️ Tentando liquidar sem filtro de loteria...`)
-            // Se não encontrou com filtro, tentar sem filtro de loteria
-            resultadosFiltrados = resultados
+            console.log(`   - Tentando match mais flexível...`)
+            
+            // Tentar match mais flexível: buscar por palavras-chave principais
+            const palavrasChave = loteriaNome.toLowerCase().split(/\s+|-|\//).filter(p => p.length > 2)
+            if (palavrasChave.length > 0) {
+              resultadosFiltrados = resultados.filter((r) => {
+                const rLoteria = (r.loteria?.toLowerCase() || '').trim()
+                return palavrasChave.some(palavra => rLoteria.includes(palavra))
+              })
+              console.log(`   - Após match flexível por palavras-chave: ${resultadosFiltrados.length} resultados`)
+            }
+            
+            // Se ainda não encontrou, tentar sem filtro de loteria
+            if (resultadosFiltrados.length === 0) {
+              console.log(`   - ⚠️ Tentando liquidar sem filtro de loteria...`)
+              resultadosFiltrados = resultados
+            }
           }
         } else {
           console.log(`   - Pulando filtro de loteria (extração não encontrada ou inválida)`)

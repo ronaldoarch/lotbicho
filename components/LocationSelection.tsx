@@ -208,7 +208,7 @@ export default function LocationSelection({
       </div>
 
       {/* Horários especiais */}
-      {!instant && (
+      {!instant && SPECIAL_TIMES.length > 0 && (
         <div className="mb-6">
           <h3 className="mb-4 text-lg font-semibold text-gray-950">Horários Especiais:</h3>
           <div className="space-y-3">

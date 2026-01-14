@@ -281,33 +281,56 @@ export async function GET(req: NextRequest) {
     })
     
     console.log(`📈 Total processado: ${totalTabelas} extrações, ${totalHorarios} horários, ${results.length} resultados`)
+    console.log(`🔍 Filtros aplicados: dateFilter="${dateFilter || 'nenhum'}", locationFilter="${locationFilter || 'nenhum'}", uf="${uf || 'nenhum'}"`)
 
     // Filtro por data (usa dataExtracao/data_extracao)
     // IMPORTANTE: Se não houver filtro de data, retornar TODOS os resultados disponíveis
     // Isso é necessário para a liquidação poder processar apostas de qualquer data
+    const antesFiltroData = results.length
     if (dateFilter) {
       results = results.filter((r) => matchesDateFilter(r.dataExtracao || r.date, dateFilter))
+      console.log(`📅 Após filtro de data "${dateFilter}": ${results.length} resultados (antes: ${antesFiltroData})`)
+    } else {
+      console.log(`📅 Sem filtro de data: mantendo todos os ${results.length} resultados`)
     }
+    
     // Filtro por UF ou nome
     // IMPORTANTE: Se não houver filtro de localização, retornar TODOS os resultados
     // Isso garante que a liquidação tenha acesso a todos os resultados de todas as extrações
+    const antesFiltroLocalizacao = results.length
     if (uf) {
       results = results.filter((r) => (r.estado || '').toUpperCase() === uf)
+      console.log(`📍 Após filtro de UF "${uf}": ${results.length} resultados (antes: ${antesFiltroLocalizacao})`)
     } else if (locationFilter) {
       const lf = normalizeText(locationFilter)
       results = results.filter((r) => normalizeText(r.location || '').includes(lf))
+      console.log(`📍 Após filtro de localização "${locationFilter}": ${results.length} resultados (antes: ${antesFiltroLocalizacao})`)
+    } else {
+      console.log(`📍 Sem filtro de localização: mantendo todos os ${results.length} resultados`)
     }
 
     // Ordenar e limitar em 7 posições por sorteio
+    const antesAgrupamento = results.length
     const grouped: Record<string, ResultadoItem[]> = {}
     results.forEach((r) => {
-      const key = `${r.loteria || ''}|${r.drawTime || ''}|${r.date || ''}`
+      const key = `${r.loteria || ''}|${r.drawTime || ''}|${r.date || r.dataExtracao || ''}`
       grouped[key] = grouped[key] || []
       grouped[key].push(r)
     })
+    
+    console.log(`📦 Agrupamento: ${antesAgrupamento} resultados → ${Object.keys(grouped).length} grupos únicos`)
+    
+    // Mostrar alguns exemplos de grupos para debug
+    const gruposExemplos = Object.entries(grouped).slice(0, 5)
+    gruposExemplos.forEach(([key, arr]) => {
+      console.log(`   - Grupo "${key}": ${arr.length} resultados`)
+    })
+    
     results = Object.values(grouped)
       .map((arr) => orderByPosition(arr).slice(0, 7))
       .flat()
+    
+    console.log(`✂️  Após limitar a 7 posições por grupo: ${results.length} resultados (antes: ${antesAgrupamento})`)
     
     // Log final: mostrar quantos grupos únicos foram criados
     const gruposUnicos = new Set(Object.keys(grouped))
@@ -316,6 +339,8 @@ export async function GET(req: NextRequest) {
     // Log de grupos únicos para debug
     if (gruposUnicos.size > 0 && gruposUnicos.size <= 20) {
       console.log(`   Grupos: ${Array.from(gruposUnicos).join(' | ')}`)
+    } else if (gruposUnicos.size > 20) {
+      console.log(`   Grupos (primeiros 10): ${Array.from(gruposUnicos).slice(0, 10).join(' | ')}...`)
     }
 
     const payload: ResultadosResponse = {

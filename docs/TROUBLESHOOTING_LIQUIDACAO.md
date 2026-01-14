@@ -273,6 +273,309 @@ root.style.setProperty('--tema-texto-titulo', tema.cores.textoTitulo || tema.cor
 
 ---
 
+### Problema 8: Campos opcionais causando erro de tipo em temas
+
+**Sintoma:**
+```
+Type error: Type 'string | undefined' is not assignable to type 'string'.
+```
+
+**Causa:**
+Campos opcionais (`textoLink?`, `textoParagrafo?`, `textoTitulo?`) podem ser `undefined`, mas o formulário espera sempre strings.
+
+**Solução:**
+Garantir valores padrão ao editar e ao resetar formulário:
+
+```typescript
+// ✅ CORRETO (garante valores padrão)
+const handleEdit = (tema: Tema) => {
+  setFormData({
+    nome: tema.nome,
+    cores: {
+      ...tema.cores,
+      textoLink: tema.cores.textoLink || tema.cores.primaria,
+      textoParagrafo: tema.cores.textoParagrafo || tema.cores.texto,
+      textoTitulo: tema.cores.textoTitulo || tema.cores.texto,
+    },
+  })
+}
+
+const resetForm = () => {
+  setFormData({
+    nome: '',
+    cores: {
+      // ... outras cores
+      textoLink: '#052370',
+      textoParagrafo: '#1C1C1C',
+      textoTitulo: '#1C1C1C',
+    },
+  })
+}
+```
+
+**Arquivos modificados:**
+- `app/admin/temas/page.tsx`
+- `hooks/useTema.ts` (atualizar interface)
+
+---
+
+## 🎯 Problemas de Validação e UX
+
+### Problema 9: Permitir avançar sem selecionar posição
+
+**Sintoma:**
+Usuário conseguia avançar para o próximo passo sem selecionar uma posição.
+
+**Causa:**
+Falta de validação obrigatória no step 3 (posição).
+
+**Solução:**
+1. Adicionar validação no `handleNext`:
+```typescript
+if (currentStep === 3) {
+  if (!betData.customPosition && !betData.position) {
+    setAlertMessage({
+      title: 'Posição não selecionada',
+      message: 'Por favor, selecione uma posição ou marque "Personalizado" e digite uma posição válida.',
+    })
+    setShowAlert(true)
+    return
+  }
+  
+  if (betData.customPosition && (!betData.customPositionValue || betData.customPositionValue.trim() === '')) {
+    setAlertMessage({
+      title: 'Posição personalizada vazia',
+      message: 'Por favor, digite uma posição personalizada (ex: 1-5, 7, 5, etc.).',
+    })
+    setShowAlert(true)
+    return
+  }
+}
+```
+
+2. Desabilitar botão "Continuar" quando não houver posição:
+```typescript
+disabled={
+  // ... outras validações
+  (currentStep === 3 && !betData.customPosition && !betData.position) ||
+  (currentStep === 3 && betData.customPosition && (!betData.customPositionValue || betData.customPositionValue.trim() === ''))
+}
+```
+
+**Arquivos modificados:**
+- `components/BetFlow.tsx`
+- `components/PositionAmountDivision.tsx`
+
+---
+
+### Problema 10: Campo de posição personalizada não implementado
+
+**Sintoma:**
+Usuário queria poder escolher qualquer posição personalizada (ex: "1-5", "7", "5", "1-7", etc.), mas só havia checkbox sem campo de input.
+
+**Causa:**
+Falta de campo de texto para posição personalizada.
+
+**Solução:**
+1. Adicionar campo `customPositionValue` ao `BetData`:
+```typescript
+interface BetData {
+  // ... outros campos
+  customPosition: boolean
+  customPositionValue?: string
+}
+```
+
+2. Adicionar campo de input no componente:
+```typescript
+{customPosition && (
+  <div className="mt-4">
+    <label className="mb-2 block text-sm font-semibold text-gray-700">
+      Digite a posição personalizada:
+    </label>
+    <input
+      type="text"
+      value={customPositionValue}
+      onChange={(e) => onCustomPositionValueChange(e.target.value)}
+      placeholder="Ex: 1-5, 7, 5, 1-7, etc."
+      className="w-full rounded-lg border-2 border-gray-300 px-4 py-3"
+    />
+    <p className="mt-2 text-xs text-gray-500">
+      Exemplos: "1-5" (do 1º ao 5º), "7" (só o 7º), "3" (só o 3º), "1-7" (do 1º ao 7º)
+    </p>
+  </div>
+)}
+```
+
+3. Validar formato da posição personalizada:
+```typescript
+// Aceita: números únicos (1, 2, 3...), ranges (1-5, 2-7...)
+const cleanedPos = customPos.replace(/º/g, '').replace(/\s/g, '')
+const isValidFormat = /^\d+(-\d+)?$/.test(cleanedPos)
+
+// Validar valores (entre 1 e 7)
+const parts = cleanedPos.split('-')
+const firstNum = parseInt(parts[0], 10)
+const secondNum = parts[1] ? parseInt(parts[1], 10) : firstNum
+
+if (firstNum < 1 || firstNum > 7 || secondNum < 1 || secondNum > 7 || firstNum > secondNum) {
+  // Erro
+}
+```
+
+4. Usar posição personalizada nos cálculos:
+```typescript
+const positionToUse = betData.customPosition && betData.customPositionValue 
+  ? betData.customPositionValue.trim() 
+  : betData.position
+const { pos_from, pos_to } = parsePosition(positionToUse)
+```
+
+**Arquivos modificados:**
+- `types/bet.ts`
+- `components/PositionAmountDivision.tsx`
+- `components/BetFlow.tsx`
+- `app/api/apostas/route.ts`
+
+---
+
+## 🖼️ Problemas de Banner
+
+### Problema 11: Banner não responsivo em mobile e desktop
+
+**Sintoma:**
+Banner não aparecia corretamente em diferentes tamanhos de tela.
+
+**Causa:**
+Uso de `background-size: cover` com altura fixa causava cortes em mobile.
+
+**Solução:**
+Usar `aspect-ratio` 16:9 com `padding-top` para manter proporção:
+
+```typescript
+<div
+  className="relative w-full overflow-hidden"
+  style={{
+    paddingTop: banner.bannerImage ? '56.25%' : '0', // 16:9 aspect ratio (9/16 = 0.5625)
+    minHeight: banner.bannerImage ? '0' : '400px',
+  }}
+>
+  {banner.bannerImage && (
+    <img
+      src={banner.bannerImage}
+      alt={banner.title || 'Banner'}
+      className="absolute top-0 left-0 w-full h-full object-cover"
+      style={{ objectPosition: 'center center' }}
+      loading="lazy"
+    />
+  )}
+</div>
+```
+
+**Arquivos modificados:**
+- `components/HeroBanner.tsx`
+
+---
+
+### Problema 12: Validação de dimensões e formato de banner
+
+**Sintoma:**
+Banners sendo enviados sem validação de proporção 16:9 e tamanho mínimo.
+
+**Causa:**
+Falta de validação no frontend antes do upload.
+
+**Solução:**
+1. Validar dimensões no frontend antes do upload:
+```typescript
+const validateBannerImage = (file: File): Promise<string | null> => {
+  return new Promise((resolve) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const width = img.width
+      const height = img.height
+      
+      // Validar proporção 16:9 (com tolerância de ±5%)
+      const aspectRatio = width / height
+      const idealRatio = 16 / 9
+      const tolerance = 0.05
+      const minRatio = idealRatio * (1 - tolerance)
+      const maxRatio = idealRatio * (1 + tolerance)
+
+      if (aspectRatio < minRatio || aspectRatio > maxRatio) {
+        resolve(`Proporção incorreta. Use 16:9 (ex.: 1920×1080 ou 1600×900).\nAtual: ${width}×${height}px`)
+        return
+      }
+
+      // Validar tamanho mínimo recomendado
+      const minWidth = 1200
+      const minHeight = 675
+      if (width < minWidth || height < minHeight) {
+        resolve(`Dimensões muito pequenas. Mínimo recomendado: ${minWidth}×${minHeight}px.\nAtual: ${width}×${height}px`)
+        return
+      }
+
+      resolve(null) // Válido
+    }
+    
+    img.src = url
+  })
+}
+```
+
+2. Adicionar box informativo no formulário com especificações
+
+**Arquivos modificados:**
+- `app/admin/banners/new/page.tsx`
+- `app/api/upload/route.ts`
+
+---
+
+## 🗑️ Remoção de Funcionalidades
+
+### Problema 13: Remover PONTO-CORUJA dos horários especiais
+
+**Sintoma:**
+Usuário queria remover o "PONTO-CORUJA 22h" da lista de horários especiais.
+
+**Solução:**
+1. Remover de `SPECIAL_QUOTATIONS`:
+```typescript
+export const SPECIAL_QUOTATIONS: SpecialQuotation[] = [
+  // ... outras cotações
+  // Removido: { id: 4, name: 'PONTO-CORUJA 22h', ... }
+]
+```
+
+2. Remover de `SPECIAL_TIMES`:
+```typescript
+export const SPECIAL_TIMES: SpecialTime[] = [
+  // Array vazio - removido PONTO-CORUJA
+]
+```
+
+3. Remover da API de lottery:
+```typescript
+// Remover objeto com id: 'ponto-coruja'
+```
+
+4. Atualizar componente para não mostrar seção vazia:
+```typescript
+{!instant && SPECIAL_TIMES.length > 0 && (
+  // Seção de horários especiais
+)}
+```
+
+**Arquivos modificados:**
+- `data/modalities.ts`
+- `app/api/lottery/route.ts`
+- `components/LocationSelection.tsx`
+
+---
+
 ## 🔍 Como Diagnosticar Problemas Similares
 
 ### Checklist de Debug
@@ -339,4 +642,34 @@ npx prisma validate
 
 ---
 
+## 📚 Documentação Adicional Criada
+
+### Guia de Banner para Sora
+- **Arquivo:** `/docs/GUIA_BANNER_SORA.md`
+- **Conteúdo:** Prompt completo para criar banners no Sora com especificações técnicas, exemplos de prompts, e checklist de validação
+
+---
+
 **Última atualização:** 14 de Janeiro de 2026
+
+## 📊 Resumo das Últimas Modificações
+
+### Validações e UX
+- ✅ Validação obrigatória de posição antes de avançar
+- ✅ Campo de posição personalizada com validação de formato
+- ✅ Botão "Continuar" desabilitado quando não há posição selecionada
+- ✅ Suporte para posições individuais (1, 2, 3, 4, 5, 6, 7) e ranges (1-5, 1-7, etc.)
+
+### Temas
+- ✅ Cores de texto personalizadas (link, parágrafo, título)
+- ✅ Correção de tipos TypeScript para campos opcionais
+- ✅ Interface atualizada no hook `useTema`
+
+### Banners
+- ✅ Responsividade perfeita usando aspect-ratio 16:9
+- ✅ Validação de dimensões e proporção antes do upload
+- ✅ Box informativo com especificações no formulário
+
+### Limpeza
+- ✅ Remoção completa do PONTO-CORUJA
+- ✅ Seção de horários especiais oculta quando vazia

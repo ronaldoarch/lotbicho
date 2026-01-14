@@ -204,11 +204,13 @@ export async function POST(request: NextRequest) {
         // Se loteria é um ID numérico, buscar o nome da extração primeiro
         let loteriaNome = aposta.loteria
         if (aposta.loteria && /^\d+$/.test(aposta.loteria)) {
-          // É um ID numérico, tentar buscar o nome da extração
+          // É um ID numérico, buscar diretamente do banco de dados
           try {
-            const { getExtracaoById } = await import('@/lib/extracao-helper')
-            const extracao = await getExtracaoById(parseInt(aposta.loteria))
-            if (extracao) {
+            const extracao = await prisma.extracao.findUnique({
+              where: { id: parseInt(aposta.loteria) },
+              select: { name: true },
+            })
+            if (extracao?.name) {
               loteriaNome = extracao.name
               console.log(`   - Loteria ID ${aposta.loteria} → Nome: "${loteriaNome}"`)
             }
@@ -220,16 +222,31 @@ export async function POST(request: NextRequest) {
         let resultadosFiltrados = resultados
 
         if (loteriaNome) {
-          const loteriaLower = loteriaNome.toLowerCase()
+          const loteriaLower = loteriaNome.toLowerCase().trim()
+          const antes = resultadosFiltrados.length
           resultadosFiltrados = resultadosFiltrados.filter((r) => {
-            const rLoteria = r.loteria?.toLowerCase() || ''
+            const rLoteria = (r.loteria?.toLowerCase() || '').trim()
             // Verificar se o nome da loteria contém ou é contido pela loteria da aposta
-            return rLoteria.includes(loteriaLower) || loteriaLower.includes(rLoteria)
+            // Também verificar se algum dos nomes contém palavras-chave comuns
+            const match = rLoteria.includes(loteriaLower) || 
+                         loteriaLower.includes(rLoteria) ||
+                         // Fallback: verificar se ambos contêm palavras-chave similares
+                         (loteriaLower.length > 2 && rLoteria.length > 2 && 
+                          (loteriaLower.split(' ').some(p => rLoteria.includes(p)) ||
+                           rLoteria.split(' ').some(p => loteriaLower.includes(p))))
+            return match
           })
-          console.log(`   - Após filtro de loteria "${loteriaNome}": ${resultadosFiltrados.length} resultados`)
+          console.log(`   - Após filtro de loteria "${loteriaNome}": ${resultadosFiltrados.length} resultados (antes: ${antes})`)
+          
+          // Se não encontrou resultados, mostrar exemplos para debug
+          if (resultadosFiltrados.length === 0 && antes > 0) {
+            const exemplos = resultados.slice(0, 5).map(r => r.loteria).filter(Boolean)
+            console.log(`   - Exemplos de loterias disponíveis: ${exemplos.join(', ')}`)
+          }
         }
 
-        if (aposta.horario && resultadosFiltrados.length > 0) {
+        // Só filtrar por horário se houver horário definido e não for null
+        if (aposta.horario && aposta.horario !== 'null' && resultadosFiltrados.length > 0) {
           const horarioAposta = aposta.horario.trim()
           const antes = resultadosFiltrados.length
           resultadosFiltrados = resultadosFiltrados.filter((r) => {
@@ -240,6 +257,8 @@ export async function POST(request: NextRequest) {
                    horarioAposta.startsWith(rHorario)
           })
           console.log(`   - Após filtro de horário "${horarioAposta}": ${resultadosFiltrados.length} resultados (antes: ${antes})`)
+        } else if (!aposta.horario || aposta.horario === 'null') {
+          console.log(`   - Pulando filtro de horário (horário não definido ou null)`)
         }
 
         if (aposta.dataConcurso && resultadosFiltrados.length > 0) {

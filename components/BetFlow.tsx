@@ -516,6 +516,8 @@ export default function BetFlow() {
             disabled={
               (currentStep === 1 && !betData.modality && activeTab === 'bicho') ||
               (currentStep === 2 && !step2Valid) ||
+              (currentStep === 3 && !betData.customPosition && !betData.position) ||
+              (currentStep === 3 && betData.customPosition && (!betData.customPositionValue || betData.customPositionValue.trim() === '')) ||
               (currentStep >= 2 && isAuthenticated === false)
             }
             className="flex-1 rounded-lg bg-yellow px-6 py-3 font-bold text-blue-950 hover:bg-yellow/90 transition-colors disabled:cursor-not-allowed disabled:opacity-50"

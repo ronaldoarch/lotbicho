@@ -61,17 +61,47 @@ export async function POST(req: NextRequest) {
     // Criar pagamento PIX via Receba Online
     // Documentação: https://docs.receba.online/
     // Endpoint: POST /api/v1/transaction/pix/cashin
-    const pixPayload = {
-      name: user.nome,
-      email: user.email,
-      phone: user.telefone || '00000000000', // Telefone obrigatório
-      description: `Depósito - ${user.nome}`,
-      document: document.replace(/\D/g, ''), // Remove formatação do CPF
-      amount: Number(valor), // Valor com ponto como separador decimal
-      platform: platformId,
-      reference: `deposito_${user.id}_${Date.now()}`, // Identificador único
-      extra: JSON.stringify({ userId: user.id }), // Campo adicional para webhook
+    
+    // Validar telefone - deve ter pelo menos 10 dígitos
+    const phoneClean = (user.telefone || '').replace(/\D/g, '')
+    if (phoneClean.length < 10) {
+      return NextResponse.json(
+        { error: 'Telefone inválido. Por favor, atualize seu telefone no perfil.' },
+        { status: 400 }
+      )
     }
+
+    // Validar CPF - deve ter 11 dígitos
+    const documentClean = document.replace(/\D/g, '')
+    if (documentClean.length !== 11) {
+      return NextResponse.json(
+        { error: 'CPF inválido. Digite um CPF válido com 11 dígitos.' },
+        { status: 400 }
+      )
+    }
+
+    const pixPayload = {
+      name: user.nome.trim(),
+      email: user.email.trim().toLowerCase(),
+      phone: phoneClean,
+      description: `Depósito - ${user.nome}`.substring(0, 255), // Limitar tamanho
+      document: documentClean,
+      amount: Number(valor.toFixed(2)), // Garantir 2 casas decimais
+      platform: platformId,
+      reference: `deposito_${user.id}_${Date.now()}`.substring(0, 50), // Max 50 caracteres
+      extra: JSON.stringify({ userId: user.id }).substring(0, 255), // Max 255 caracteres
+    }
+
+    // Log do payload (sem dados sensíveis) para debug
+    console.log('Criando PIX cashin:', {
+      name: pixPayload.name,
+      email: pixPayload.email,
+      phone: pixPayload.phone ? '***' : 'missing',
+      document: pixPayload.document ? '***' : 'missing',
+      amount: pixPayload.amount,
+      platform: pixPayload.platform ? '***' : 'missing',
+      reference: pixPayload.reference,
+    })
 
     // Criar pagamento PIX via Receba Online
     // Passar a API key explicitamente para garantir que está sendo usada
@@ -117,8 +147,69 @@ export async function POST(req: NextRequest) {
     })
   } catch (error: any) {
     console.error('Erro ao criar pagamento PIX:', error)
+    
+    // Tratar erros específicos da API Receba Online
+    const errorMessage = error.message || ''
+    
+    // Erro 422 - Validação
+    if (errorMessage.includes('422')) {
+      try {
+        const errorBody = JSON.parse(errorMessage.match(/\{.*\}/)?.[0] || '{}')
+        const errorCode = errorBody.error
+        const apiMessage = errorBody.message || errorBody.error || 'Erro de validação'
+        
+        // Mapear códigos de erro conhecidos para mensagens amigáveis
+        const errorMessages: Record<number, string> = {
+          10: 'Plataforma inválida. Verifique a configuração da plataforma.',
+          11: 'Configuração de PIX não encontrada. Entre em contato com o suporte.',
+          13: 'Transação para CNPJ não permitida. Use CPF.',
+          14: 'Transação não permitida para menores de idade.',
+          15: 'Documento na lista de bloqueio.',
+          17: 'Documento inválido.',
+          18: 'Status do CNPJ inválido.',
+          23: 'Valor mínimo não atingido.',
+          25: 'Transação duplicada. Aguarde alguns segundos e tente novamente.',
+          26: 'Chave PIX inválida.',
+          27: 'Documento inválido.',
+          28: 'Chave PIX não pertence ao documento informado.',
+          29: 'Não autorizado a acessar este recurso.',
+          30: 'Tipo de chave PIX inválido.',
+          34: 'Operação não permitida. Verifique se sua conta está habilitada para depósitos PIX ou entre em contato com o suporte técnico.',
+        }
+        
+        const friendlyMessage = errorMessages[errorCode] || apiMessage
+        
+        return NextResponse.json(
+          { error: friendlyMessage, errorCode, originalMessage: apiMessage },
+          { status: 422 }
+        )
+      } catch (parseError) {
+        return NextResponse.json(
+          { error: 'Erro ao processar resposta da API. Tente novamente ou entre em contato com o suporte.' },
+          { status: 422 }
+        )
+      }
+    }
+    
+    // Erro 401 - Não autenticado
+    if (errorMessage.includes('401') || errorMessage.includes('Unauthenticated')) {
+      return NextResponse.json(
+        { error: 'Erro de autenticação. Verifique se a API key está configurada corretamente.' },
+        { status: 401 }
+      )
+    }
+    
+    // Erro 404 - Endpoint não encontrado
+    if (errorMessage.includes('404')) {
+      return NextResponse.json(
+        { error: 'Endpoint não encontrado. Verifique a configuração da API.' },
+        { status: 404 }
+      )
+    }
+    
+    // Erro genérico
     return NextResponse.json(
-      { error: error.message || 'Erro ao criar pagamento PIX' },
+      { error: errorMessage || 'Erro ao criar pagamento PIX. Tente novamente ou entre em contato com o suporte.' },
       { status: 500 }
     )
   }

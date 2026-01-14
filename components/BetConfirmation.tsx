@@ -3,6 +3,8 @@
 import { ANIMALS } from '@/data/animals'
 import { MODALITIES } from '@/data/modalities'
 import { BetData } from '@/types/bet'
+import { parsePosition, formatarPosicao } from '@/lib/position-parser'
+import { calcularValorPorPalpite } from '@/lib/bet-rules-engine'
 
 interface BetConfirmationProps {
   betData: BetData
@@ -41,6 +43,17 @@ export default function BetConfirmation({ betData, saldoDisponivel, onConfirm, o
   }
 
   const total = calculateTotal()
+  const qtdPalpites = isNumberModality ? numberBets.length : selectedGroups.length
+  const valorPorPalpite = qtdPalpites > 0
+    ? calcularValorPorPalpite(betData.amount, qtdPalpites, betData.divisionType)
+    : betData.amount
+  
+  const posicaoFormatada = betData.position
+    ? formatarPosicao(
+        parsePosition(betData.position).pos_from,
+        parsePosition(betData.position).pos_to
+      )
+    : null
 
   const selectedModality = betData.modalityName
     ? { name: betData.modalityName, value: MODALITIES.find((m) => m.name === betData.modalityName)?.value || '' }
@@ -64,49 +77,86 @@ export default function BetConfirmation({ betData, saldoDisponivel, onConfirm, o
           </div>
         )}
 
-        {/* Animals or Numbers */}
-        {isNumberModality ? (
-          <div>
-            <h3 className="mb-2 font-semibold text-gray-700">Palpites numéricos:</h3>
-            <div className="space-y-2">
-              {numberBets.map((num, idx) => (
-                <div key={idx} className="flex flex-wrap gap-2">
-                  <span className="rounded-lg bg-amber-200 px-3 py-1 text-sm font-semibold text-gray-900">
-                    {num}
-                  </span>
-                </div>
-              ))}
-            </div>
+        {/* Palpites */}
+        <div>
+          <h3 className="mb-3 font-semibold text-gray-700">Palpites:</h3>
+          <div className="flex flex-wrap gap-2">
+            {isNumberModality ? (
+              numberBets.map((num, idx) => (
+                <span
+                  key={idx}
+                  className="rounded-lg bg-blue-200 px-3 py-1 text-sm font-semibold text-gray-900"
+                >
+                  {num}
+                </span>
+              ))
+            ) : (
+              selectedGroups.map((grp, idx) => (
+                <span
+                  key={idx}
+                  className="rounded-lg bg-amber-200 px-3 py-1 text-sm font-semibold text-gray-900"
+                >
+                  {grp.map((n) => String(n).padStart(2, '0')).join('-')}
+                </span>
+              ))
+            )}
           </div>
-        ) : (
-          <div>
-            <h3 className="mb-2 font-semibold text-gray-700">Palpites de animais:</h3>
-            <div className="space-y-2">
-              {selectedGroups.map((grp, idx) => (
-                <div key={idx} className="flex flex-wrap gap-2">
-                  <span className="rounded-lg bg-amber-200 px-3 py-1 text-sm font-semibold text-gray-900">
-                    {grp.map((n) => String(n).padStart(2, '0')).join('-')}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        </div>
 
         {/* Position */}
-        {betData.position && (
+        {posicaoFormatada && (
           <div>
             <h3 className="mb-2 font-semibold text-gray-700">Posição:</h3>
-            <p className="text-gray-950">{betData.position}</p>
+            <p className="text-lg font-bold text-gray-950">{posicaoFormatada}</p>
             {betData.customPosition && (
               <p className="text-sm text-gray-500">(Personalizado)</p>
             )}
           </div>
         )}
 
-        {/* Amount */}
+        {/* Data e Hora */}
         <div>
-          <h3 className="mb-2 font-semibold text-gray-700">Valor:</h3>
+          <h3 className="mb-2 font-semibold text-gray-700">Data e Hora:</h3>
+          <p className="text-gray-950">
+            {new Date().toLocaleString('pt-BR', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+            })}
+          </p>
+        </div>
+
+        {/* Loteria e Horário */}
+        {(betData.location || betData.specialTime) && (
+          <div>
+            <h3 className="mb-2 font-semibold text-gray-700">Loteria / Horário:</h3>
+            <p className="text-gray-950">
+              {[betData.location, betData.specialTime].filter(Boolean).join(' • ') || '—'}
+            </p>
+          </div>
+        )}
+
+        {/* Valor por Palpite */}
+        {qtdPalpites > 0 && (
+          <div>
+            <h3 className="mb-2 font-semibold text-gray-700">Valor por Palpite:</h3>
+            <p className="text-lg font-bold text-gray-950">
+              R$ {valorPorPalpite.toFixed(2)}
+            </p>
+            <p className="text-sm text-gray-500">
+              {betData.divisionType === 'each' 
+                ? `Cada um dos ${qtdPalpites} palpites vale R$ ${valorPorPalpite.toFixed(2)}`
+                : `R$ ${betData.amount.toFixed(2)} dividido entre ${qtdPalpites} palpites`}
+            </p>
+          </div>
+        )}
+
+        {/* Valor Total Digitado */}
+        <div>
+          <h3 className="mb-2 font-semibold text-gray-700">Valor Digitado:</h3>
           <p className="text-lg font-bold text-gray-950">
             R$ {betData.amount.toFixed(2)} {betData.divisionType === 'each' ? 'por palpite' : 'total'}
           </p>
@@ -120,18 +170,11 @@ export default function BetConfirmation({ betData, saldoDisponivel, onConfirm, o
           </p>
         </div>
 
-        {/* Location */}
-        {betData.location && (
-          <div>
-            <h3 className="mb-2 font-semibold text-gray-700">Localização:</h3>
-            <p className="text-gray-950">{betData.location}</p>
-          </div>
-        )}
-
         {/* Instant */}
         {betData.instant && (
-          <div>
+          <div className="rounded-lg bg-yellow/10 border-2 border-yellow p-3">
             <p className="font-semibold text-yellow">✓ Sorteio Instantâneo</p>
+            <p className="text-sm text-gray-600 mt-1">O resultado será gerado imediatamente após a confirmação</p>
           </div>
         )}
 

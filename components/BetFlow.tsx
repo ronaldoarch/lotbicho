@@ -4,6 +4,15 @@ import { useEffect, useMemo, useState } from 'react'
 import { BetData } from '@/types/bet'
 import { ANIMALS } from '@/data/animals'
 import { MODALITIES } from '@/data/modalities'
+import { 
+  calcularValorPorPalpite,
+  calcularNumero,
+  calcularGrupo,
+  buscarOdd,
+  calcularPremioUnidade,
+  type ModalityType 
+} from '@/lib/bet-rules-engine'
+import { parsePosition } from '@/lib/position-parser'
 import ProgressIndicator from './ProgressIndicator'
 import SpecialQuotationsModal from './SpecialQuotationsModal'
 import ModalitySelection from './ModalitySelection'
@@ -158,6 +167,61 @@ export default function BetFlow() {
     return valorTotal <= saldoDisponivel
   }
 
+  const calcularRetornoPrevisto = (): number => {
+    if (!betData.modalityName || (!isNumberModality && betData.animalBets.length === 0) || (isNumberModality && betData.numberBets.length === 0)) {
+      return 0
+    }
+
+    try {
+      // Mapear nome da modalidade para tipo
+      const modalityMap: Record<string, ModalityType> = {
+        'Grupo': 'GRUPO',
+        'Dupla de Grupo': 'DUPLA_GRUPO',
+        'Terno de Grupo': 'TERNO_GRUPO',
+        'Quadra de Grupo': 'QUADRA_GRUPO',
+        'Dezena': 'DEZENA',
+        'Centena': 'CENTENA',
+        'Milhar': 'MILHAR',
+        'Dezena Invertida': 'DEZENA_INVERTIDA',
+        'Centena Invertida': 'CENTENA_INVERTIDA',
+        'Milhar Invertida': 'MILHAR_INVERTIDA',
+        'Milhar/Centena': 'MILHAR_CENTENA',
+        'Passe vai': 'PASSE',
+        'Passe vai e vem': 'PASSE_VAI_E_VEM',
+      }
+
+      const modalityType = modalityMap[betData.modalityName] || 'GRUPO'
+      const { pos_from, pos_to } = parsePosition(betData.position)
+      const qtdPalpites = isNumberModality ? betData.numberBets.length : betData.animalBets.length
+      const valorPorPalpite = calcularValorPorPalpite(betData.amount, qtdPalpites, betData.divisionType)
+      const odd = buscarOdd(modalityType, pos_from, pos_to)
+      
+      let retornoTotal = 0
+
+      if (isNumberModality) {
+        for (const numero of betData.numberBets) {
+          const calculation = calcularNumero(modalityType, numero, pos_from, pos_to, valorPorPalpite)
+          const premioUnidade = calcularPremioUnidade(odd, calculation.unitValue)
+          // Assumir 1 acerto por palpite (melhor caso)
+          retornoTotal += premioUnidade
+        }
+      } else {
+        for (const animalBet of betData.animalBets) {
+          const qtdGrupos = animalBet.length
+          const calculation = calcularGrupo(modalityType, qtdGrupos, pos_from, pos_to, valorPorPalpite)
+          const premioUnidade = calcularPremioUnidade(odd, calculation.unitValue)
+          // Assumir 1 acerto por palpite (melhor caso)
+          retornoTotal += premioUnidade
+        }
+      }
+
+      return retornoTotal
+    } catch (error) {
+      console.error('Erro ao calcular retorno previsto:', error)
+      return 0
+    }
+  }
+
   const handleConfirm = () => {
     // Validar saldo antes de confirmar
     if (!validarSaldo()) {
@@ -189,6 +253,8 @@ export default function BetFlow() {
       apostaText = `${modalityName}: ${animalNames}`
     }
 
+    const retornoPrevistoCalculado = calcularRetornoPrevisto()
+
     const payload = {
       concurso: betData.location ? `Extração ${betData.location}` : null,
       loteria: betData.location,
@@ -198,7 +264,7 @@ export default function BetFlow() {
       modalidade: modalityName,
       aposta: apostaText,
       valor: betData.amount,
-      retornoPrevisto: 0,
+      retornoPrevisto: retornoPrevistoCalculado,
       status: 'pendente',
       useBonus: betData.useBonus,
       detalhes: {

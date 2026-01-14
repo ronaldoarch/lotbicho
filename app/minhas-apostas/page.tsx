@@ -153,7 +153,9 @@ export default function MinhasApostasPage() {
                                 ? 'bg-green-100 text-green-800'
                                 : a.status === 'pendente'
                                   ? 'bg-yellow-100 text-yellow-800'
-                                  : 'bg-gray-100 text-gray-700'
+                                  : (a.status === 'perdida' || a.status === 'perdeu')
+                                    ? 'bg-gray-100 text-gray-700'
+                                    : 'bg-gray-100 text-gray-700'
                             }`}
                           >
                             {a.status === 'liquidado' ? 'Ganhou' : (a.status === 'perdida' || a.status === 'perdeu') ? 'Perdeu' : a.status}

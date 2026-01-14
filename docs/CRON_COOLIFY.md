@@ -37,6 +37,7 @@ mkdir -p /app/scripts/cron
 mkdir -p /app/logs
 
 # Criar script
+# NOTA: localhost funciona aqui porque está dentro do mesmo container
 cat > /app/scripts/cron/liquidar.sh << 'EOF'
 #!/bin/bash
 curl -X POST http://localhost:3000/api/resultados/liquidar \
@@ -131,13 +132,15 @@ Use um serviço como:
 1. Acesse https://cron-job.org
 2. Crie conta gratuita
 3. Adicione novo cron job:
-   - **URL:** `https://seu-dominio.com/api/resultados/liquidar`
+   - **URL:** `https://SEU-DOMINIO-PUBLICO/api/resultados/liquidar`
+     - ⚠️ **IMPORTANTE:** Use a URL pública do seu servidor, não localhost!
+     - Exemplo: `https://ig4o44cgogk084sc0g8884o4.agenciamidas.com/api/resultados/liquidar`
    - **Method:** POST
    - **Body:** `{"usarMonitor": true}`
    - **Headers:** `Content-Type: application/json`
    - **Schedule:** A cada 5 minutos (9h-22h)
 
-### Exemplo de configuração:
+### Exemplo de configuração completa:
 
 ```
 URL: https://ig4o44cgogk084sc0g8884o4.agenciamidas.com/api/resultados/liquidar
@@ -146,6 +149,10 @@ Body: {"usarMonitor": true}
 Headers: Content-Type: application/json
 Schedule: */5 9-22 * * *
 ```
+
+**⚠️ Nota:** 
+- Para serviços externos (cron-job.org): Use URL pública do servidor
+- Para scripts dentro do container: Use `localhost:3000` (mesmo container)
 
 ---
 
@@ -157,6 +164,7 @@ Algumas versões do Coolify têm **Scheduled Tasks**:
 2. Procure por **Scheduled Tasks** ou **Cron Jobs**
 3. Adicione nova tarefa:
    - **Command:** `curl -X POST http://localhost:3000/api/resultados/liquidar -H "Content-Type: application/json" -d '{"usarMonitor": true}'`
+     - ⚠️ **Nota:** Aqui usa localhost porque executa dentro do mesmo container
    - **Schedule:** `*/5 9-22 * * *`
 
 ---
@@ -178,7 +186,10 @@ Algumas versões do Coolify têm **Scheduled Tasks**:
 2. Crie conta
 3. Adicione cron job:
    ```
-   URL: https://SEU-DOMINIO/api/resultados/liquidar
+   URL: https://SEU-DOMINIO-PUBLICO/api/resultados/liquidar
+      ⚠️ Use a URL pública do seu servidor Coolify!
+      Exemplo: https://ig4o44cgogk084sc0g8884o4.agenciamidas.com/api/resultados/liquidar
+   
    Method: POST
    Body: {"usarMonitor": true}
    Headers: Content-Type: application/json

@@ -6,6 +6,8 @@
 # Exemplo: */5 9-22 * * * /caminho/para/lotbicho/scripts/cron/liquidar.sh
 
 # Configurações
+# NOTA: localhost funciona aqui porque o script roda dentro do mesmo container
+# Para serviços externos, use a URL pública do servidor
 API_URL="${API_URL:-http://localhost:3000}"
 LOG_DIR="${LOG_DIR:-$(dirname "$0")/../logs}"
 LOG_FILE="$LOG_DIR/liquidacao-$(date '+%Y%m%d').log"

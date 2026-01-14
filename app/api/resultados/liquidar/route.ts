@@ -351,13 +351,47 @@ export async function POST(request: NextRequest) {
 
         if (aposta.dataConcurso && resultadosFiltrados.length > 0) {
           const dataAposta = aposta.dataConcurso.toISOString().split('T')[0]
+          // Normalizar data da aposta para formato DD/MM/YYYY também
+          const [anoAposta, mesAposta, diaAposta] = dataAposta.split('-')
+          const dataApostaFormatada = `${diaAposta}/${mesAposta}/${anoAposta}`
+          
           const antes = resultadosFiltrados.length
           resultadosFiltrados = resultadosFiltrados.filter((r) => {
             if (!r.date && !r.dataExtracao) return false
-            const dataResultado = (r.date || r.dataExtracao)?.split('T')[0]
-            return dataResultado === dataAposta
+            
+            const dataResultado = r.date || r.dataExtracao || ''
+            
+            // Tentar múltiplos formatos de comparação
+            // Formato ISO: 2026-01-14
+            const dataResultadoISO = dataResultado.split('T')[0]
+            if (dataResultadoISO === dataAposta) return true
+            
+            // Formato brasileiro: 14/01/2026
+            if (dataResultado === dataApostaFormatada) return true
+            
+            // Comparação parcial (apenas dia/mês/ano)
+            const matchBR = dataResultado.match(/(\d{2})\/(\d{2})\/(\d{4})/)
+            if (matchBR) {
+              const [_, dia, mes, ano] = matchBR
+              if (`${ano}-${mes}-${dia}` === dataAposta) return true
+            }
+            
+            // Comparação reversa (ano-mês-dia vs dia/mês/ano)
+            const matchISO = dataResultado.match(/(\d{4})-(\d{2})-(\d{2})/)
+            if (matchISO) {
+              const [_, ano, mes, dia] = matchISO
+              if (`${dia}/${mes}/${ano}` === dataApostaFormatada) return true
+            }
+            
+            return false
           })
-          console.log(`   - Após filtro de data "${dataAposta}": ${resultadosFiltrados.length} resultados (antes: ${antes})`)
+          console.log(`   - Após filtro de data "${dataAposta}" (ou "${dataApostaFormatada}"): ${resultadosFiltrados.length} resultados (antes: ${antes})`)
+          
+          // Debug: mostrar exemplos de datas dos resultados
+          if (resultadosFiltrados.length === 0 && antes > 0) {
+            const exemplosDatas = Array.from(new Set(resultados.slice(0, 5).map(r => r.date || r.dataExtracao).filter(Boolean)))
+            console.log(`   - Exemplos de datas disponíveis: ${exemplosDatas.join(', ')}`)
+          }
         }
 
         console.log(`\n🔍 Processando aposta ${aposta.id}:`)

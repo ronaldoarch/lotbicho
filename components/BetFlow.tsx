@@ -175,7 +175,12 @@ export default function BetFlow() {
               <ModalitySelection
                 selectedModality={betData.modality}
                 onModalitySelect={(modalityId, modalityName) =>
-                  setBetData((prev) => ({ ...prev, modality: modalityId, modalityName }))
+                  setBetData((prev) => ({
+                    ...prev,
+                    modality: modalityId,
+                    modalityName,
+                    animalBets: [], // limpa palpites ao trocar modalidade
+                  }))
                 }
                 onSpecialQuotationsClick={() => setShowSpecialModal(true)}
               />

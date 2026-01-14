@@ -245,38 +245,29 @@ export async function POST(request: NextRequest) {
       try {
         // Filtrar resultados por loteria/horário/data da aposta
         // Se loteria é um ID numérico, buscar o nome da extração primeiro
+        // As extrações estão armazenadas como array estático em /api/admin/extracoes
         let loteriaNome = aposta.loteria
         let usarFiltroLoteria = true
         
         if (aposta.loteria && /^\d+$/.test(aposta.loteria)) {
-          // É um ID numérico, buscar diretamente do banco de dados
+          // É um ID numérico, buscar da lista estática de extrações
           try {
+            const { extracoes } = await import('@/app/api/admin/extracoes/route')
             const extracaoId = parseInt(aposta.loteria)
-            const extracao = await prisma.extracao.findUnique({
-              where: { id: extracaoId },
-              select: { 
-                id: true,
-                name: true,
-                active: true,
-              },
-            })
+            
+            // Buscar extração da lista estática
+            const extracao = extracoes.find((e: any) => e.id === extracaoId)
             
             if (extracao) {
-              if (extracao.name) {
+              if (extracao.name && extracao.name !== '—') {
                 loteriaNome = extracao.name
                 console.log(`   - Loteria ID ${aposta.loteria} → Nome: "${loteriaNome}" (ativa: ${extracao.active})`)
               } else {
-                console.log(`   - Extração ID ${aposta.loteria} encontrada mas sem nome`)
+                console.log(`   - Extração ID ${aposta.loteria} encontrada mas sem nome válido: "${extracao.name}"`)
                 usarFiltroLoteria = false
               }
             } else {
-              // Tentar buscar todas as extrações para debug
-              const todasExtracoes = await prisma.extracao.findMany({
-                select: { id: true, name: true },
-                take: 10,
-              })
-              console.log(`   - Extração ID ${aposta.loteria} não encontrada no banco`)
-              console.log(`   - Extrações disponíveis (primeiras 10): ${todasExtracoes.map(e => `${e.id}:${e.name}`).join(', ')}`)
+              console.log(`   - Extração ID ${aposta.loteria} não encontrada na lista`)
               console.log(`   - ⚠️ Pulando filtro de loteria (extração não encontrada)`)
               usarFiltroLoteria = false
             }

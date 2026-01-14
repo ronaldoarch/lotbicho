@@ -64,6 +64,9 @@ let extracoes: Extracao[] = [
   { id: 46, name: 'PT SP', estado: 'SP', realCloseTime: '20:11', closeTime: '20:15', time: '20:15', active: true, max: 10, days: 'Seg, Ter, Sex' },
 ]
 
+// Exportar extracoes para uso em outros módulos
+export { extracoes }
+
 export async function GET() {
   return NextResponse.json({ extracoes, total: extracoes.length })
 }

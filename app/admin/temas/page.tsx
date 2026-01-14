@@ -13,6 +13,9 @@ interface Tema {
     sucesso: string
     texto: string
     textoSecundario: string
+    textoLink?: string
+    textoParagrafo?: string
+    textoTitulo?: string
     fundo: string
     fundoSecundario: string
   }
@@ -35,6 +38,9 @@ export default function TemasPage() {
       sucesso: '#25D366',
       texto: '#1C1C1C',
       textoSecundario: '#4A4A4A',
+      textoLink: '#052370',
+      textoParagrafo: '#1C1C1C',
+      textoTitulo: '#1C1C1C',
       fundo: '#F5F5F5',
       fundoSecundario: '#FFFFFF',
     },
@@ -374,6 +380,90 @@ export default function TemasPage() {
                       setFormData({
                         ...formData,
                         cores: { ...formData.cores, textoSecundario: e.target.value },
+                      })
+                    }
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Cor do Texto de Link</label>
+                <div className="flex gap-2">
+                  <input
+                    type="color"
+                    value={formData.cores.textoLink || formData.cores.primaria}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        cores: { ...formData.cores, textoLink: e.target.value },
+                      })
+                    }
+                    className="w-16 h-10 border border-gray-300 rounded cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={formData.cores.textoLink || formData.cores.primaria}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        cores: { ...formData.cores, textoLink: e.target.value },
+                      })
+                    }
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Cor do Texto de Parágrafo</label>
+                <div className="flex gap-2">
+                  <input
+                    type="color"
+                    value={formData.cores.textoParagrafo || formData.cores.texto}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        cores: { ...formData.cores, textoParagrafo: e.target.value },
+                      })
+                    }
+                    className="w-16 h-10 border border-gray-300 rounded cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={formData.cores.textoParagrafo || formData.cores.texto}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        cores: { ...formData.cores, textoParagrafo: e.target.value },
+                      })
+                    }
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Cor do Texto de Título</label>
+                <div className="flex gap-2">
+                  <input
+                    type="color"
+                    value={formData.cores.textoTitulo || formData.cores.texto}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        cores: { ...formData.cores, textoTitulo: e.target.value },
+                      })
+                    }
+                    className="w-16 h-10 border border-gray-300 rounded cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={formData.cores.textoTitulo || formData.cores.texto}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        cores: { ...formData.cores, textoTitulo: e.target.value },
                       })
                     }
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue focus:border-transparent"

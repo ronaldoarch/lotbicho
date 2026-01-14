@@ -10,6 +10,9 @@ export interface Tema {
     sucesso: string
     texto: string
     textoSecundario: string
+    textoLink?: string
+    textoParagrafo?: string
+    textoTitulo?: string
     fundo: string
     fundoSecundario: string
   }
@@ -33,6 +36,9 @@ export async function getTemas(): Promise<Tema[]> {
       sucesso: t.sucesso,
       texto: t.texto,
       textoSecundario: t.textoSecundario,
+      textoLink: (t as any).textoLink || t.primaria,
+      textoParagrafo: (t as any).textoParagrafo || t.texto,
+      textoTitulo: (t as any).textoTitulo || t.texto,
       fundo: t.fundo,
       fundoSecundario: t.fundoSecundario,
     },
@@ -59,6 +65,9 @@ export async function getTema(id: string): Promise<Tema | undefined> {
       sucesso: tema.sucesso,
       texto: tema.texto,
       textoSecundario: tema.textoSecundario,
+      textoLink: (tema as any).textoLink || tema.primaria,
+      textoParagrafo: (tema as any).textoParagrafo || tema.texto,
+      textoTitulo: (tema as any).textoTitulo || tema.texto,
       fundo: tema.fundo,
       fundoSecundario: tema.fundoSecundario,
     },
@@ -84,6 +93,9 @@ export async function getTemaAtivo(): Promise<Tema> {
         sucesso: '#25D366',
         texto: '#1C1C1C',
         textoSecundario: '#4A4A4A',
+        textoLink: '#052370',
+        textoParagrafo: '#1C1C1C',
+        textoTitulo: '#1C1C1C',
         fundo: '#F5F5F5',
         fundoSecundario: '#FFFFFF',
         ativo: true,
@@ -101,6 +113,9 @@ export async function getTemaAtivo(): Promise<Tema> {
       sucesso: tema.sucesso,
       texto: tema.texto,
       textoSecundario: tema.textoSecundario,
+      textoLink: (tema as any).textoLink || tema.primaria,
+      textoParagrafo: (tema as any).textoParagrafo || tema.texto,
+      textoTitulo: (tema as any).textoTitulo || tema.texto,
       fundo: tema.fundo,
       fundoSecundario: tema.fundoSecundario,
     },
@@ -120,6 +135,9 @@ export async function createTema(tema: Omit<Tema, 'id' | 'criadoEm' | 'atualizad
       sucesso: tema.cores.sucesso,
       texto: tema.cores.texto,
       textoSecundario: tema.cores.textoSecundario,
+      textoLink: tema.cores.textoLink || tema.cores.primaria,
+      textoParagrafo: tema.cores.textoParagrafo || tema.cores.texto,
+      textoTitulo: tema.cores.textoTitulo || tema.cores.texto,
       fundo: tema.cores.fundo,
       fundoSecundario: tema.cores.fundoSecundario,
       ativo: tema.ativo,
@@ -156,6 +174,9 @@ export async function updateTema(id: string, updates: Partial<Tema>): Promise<Te
     data.sucesso = updates.cores.sucesso
     data.texto = updates.cores.texto
     data.textoSecundario = updates.cores.textoSecundario
+    if (updates.cores.textoLink) data.textoLink = updates.cores.textoLink
+    if (updates.cores.textoParagrafo) data.textoParagrafo = updates.cores.textoParagrafo
+    if (updates.cores.textoTitulo) data.textoTitulo = updates.cores.textoTitulo
     data.fundo = updates.cores.fundo
     data.fundoSecundario = updates.cores.fundoSecundario
   }
@@ -176,6 +197,9 @@ export async function updateTema(id: string, updates: Partial<Tema>): Promise<Te
       sucesso: tema.sucesso,
       texto: tema.texto,
       textoSecundario: tema.textoSecundario,
+      textoLink: (tema as any).textoLink || tema.primaria,
+      textoParagrafo: (tema as any).textoParagrafo || tema.texto,
+      textoTitulo: (tema as any).textoTitulo || tema.texto,
       fundo: tema.fundo,
       fundoSecundario: tema.fundoSecundario,
     },
@@ -214,6 +238,9 @@ export async function setTemaAtivo(id: string): Promise<Tema | null> {
       sucesso: tema.sucesso,
       texto: tema.texto,
       textoSecundario: tema.textoSecundario,
+      textoLink: (tema as any).textoLink || tema.primaria,
+      textoParagrafo: (tema as any).textoParagrafo || tema.texto,
+      textoTitulo: (tema as any).textoTitulo || tema.texto,
       fundo: tema.fundo,
       fundoSecundario: tema.fundoSecundario,
     },

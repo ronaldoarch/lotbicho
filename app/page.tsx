@@ -57,8 +57,8 @@ export default function Home() {
             </div>
 
             <div className="flex flex-col gap-2 text-sm font-light lg:text-left">
-              <h3 className="text-lg font-semibold">Jogo do Bicho</h3>
-              <p className="block">
+              <h3 className="text-lg font-semibold text-tema-texto-titulo">Jogo do Bicho</h3>
+              <p className="block text-tema-texto-paragrafo">
                 Jogo do Bicho é uma popular forma de jogo no Brasil, onde os jogadores escolhem um número associado a um
                 animal e fazem suas apostas. O &quot;bicho deu&quot; refere-se ao resultado do jogo, que é anunciado
                 diariamente em diversos &quot;deu no poste&quot; espalhados pelo país. O Jogo do Bicho é um tipo de jogo em
@@ -68,8 +68,8 @@ export default function Home() {
                 estar ciente dos riscos envolvidos na realização de apostas online e ter a certeza de que o site escolhido é
                 seguro e confiável antes de começar a jogar.
               </p>
-              <h3 className="mt-6 text-lg font-semibold">Bicho Online</h3>
-              <p className="block">
+              <h3 className="mt-6 text-lg font-semibold text-tema-texto-titulo">Bicho Online</h3>
+              <p className="block text-tema-texto-paragrafo">
                 Existem muitos jogos diferentes disponíveis na internet, incluindo o Jogo do Bicho, mas é importante escolher
                 o tipo certo de jogo e compreender as regras antes de começar a jogar. Além disso, é importante verificar os
                 resultados dos jogos regularmente para saber se você ganhou ou não. Em geral, o Jogo do Bicho é uma forma

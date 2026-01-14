@@ -24,6 +24,9 @@ body {
   --tema-sucesso: #25D366;
   --tema-texto: #1C1C1C;
   --tema-texto-secundario: #4A4A4A;
+  --tema-texto-link: #052370;
+  --tema-texto-paragrafo: #1C1C1C;
+  --tema-texto-titulo: #1C1C1C;
   --tema-fundo: #F5F5F5;
   --tema-fundo-secundario: #FFFFFF;
 }
@@ -67,6 +70,18 @@ body {
 
 .text-tema-texto-secundario {
   color: var(--tema-texto-secundario);
+}
+
+.text-tema-texto-link {
+  color: var(--tema-texto-link);
+}
+
+.text-tema-texto-paragrafo {
+  color: var(--tema-texto-paragrafo);
+}
+
+.text-tema-texto-titulo {
+  color: var(--tema-texto-titulo);
 }
 
 .bg-tema-fundo {

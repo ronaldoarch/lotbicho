@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import {
   conferirPalpite,
   calcularValorPorPalpite,
+  milharParaGrupo,
   type ModalityType,
   type InstantResult,
 } from '@/lib/bet-rules-engine'
@@ -228,11 +229,8 @@ export async function POST(request: NextRequest) {
           return parseInt(milharStr.padStart(4, '0').slice(-4)) // Garante 4 dígitos
         })
 
-        const grupos = milhares.map((m) => {
-          const dezena = m % 100
-          if (dezena === 0) return 25
-          return Math.floor((dezena - 1) / 4) + 1
-        })
+        // Usar função correta para converter milhares em grupos
+        const grupos = milhares.map((m) => milharParaGrupo(m))
 
         const resultadoOficial: InstantResult = {
           prizes: milhares,

@@ -80,16 +80,19 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Payload conforme documentação oficial: https://docs.receba.online/pix
+    // Campos obrigatórios: name, email, phone, description, document, amount, platform
+    // Campos opcionais: reference (max 50), extra (max 255)
     const pixPayload = {
       name: user.nome.trim(),
       email: user.email.trim().toLowerCase(),
-      phone: phoneClean,
-      description: `Depósito - ${user.nome}`.substring(0, 255), // Limitar tamanho
-      document: documentClean,
-      amount: Number(valor.toFixed(2)), // Garantir 2 casas decimais
-      platform: platformId,
-      reference: `deposito_${user.id}_${Date.now()}`.substring(0, 50), // Max 50 caracteres
-      extra: JSON.stringify({ userId: user.id }).substring(0, 255), // Max 255 caracteres
+      phone: phoneClean, // Número de telefone sem formatação
+      description: `Depósito - ${user.nome}`.substring(0, 255), // Limitar tamanho conforme doc
+      document: documentClean, // CPF sem formatação (apenas números)
+      amount: parseFloat(valor.toFixed(2)), // Float com ponto como separador decimal (conforme doc)
+      platform: platformId, // UUID da plataforma
+      reference: `deposito_${user.id}_${Date.now()}`.substring(0, 50), // Max 50 caracteres (conforme doc)
+      extra: JSON.stringify({ userId: user.id }).substring(0, 255), // Max 255 caracteres (conforme doc)
     }
 
     // Log do payload (sem dados sensíveis) para debug

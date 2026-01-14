@@ -286,12 +286,31 @@ export default function MinhasApostasPage() {
               )}
               
               {/* Loteria e horário */}
-              {(selecionada.loteria || selecionada.horario) && (
-                <Detail
-                  label="Loteria / Horário"
-                  value={[selecionada.loteria, selecionada.horario].filter(Boolean).join(' • ') || '—'}
-                />
-              )}
+              {(() => {
+                const ExtracaoDetail = () => {
+                  const [extracaoInfo, setExtracaoInfo] = useState<string>('—')
+                  
+                  useEffect(() => {
+                    const loadExtracao = async () => {
+                      const betData = selecionada.detalhes?.betData
+                      if (betData?.location) {
+                        const extracao = await getExtracaoById(betData.location)
+                        setExtracaoInfo(formatarExtracaoHorario(extracao))
+                      } else if (betData?.specialTime) {
+                        setExtracaoInfo(betData.specialTime)
+                      } else if (selecionada.loteria || selecionada.horario) {
+                        setExtracaoInfo([selecionada.loteria, selecionada.horario].filter(Boolean).join(' • ') || '—')
+                      }
+                    }
+                    loadExtracao()
+                  }, [selecionada])
+                  
+                  return (selecionada.detalhes?.betData?.location || selecionada.detalhes?.betData?.specialTime || selecionada.loteria || selecionada.horario) ? (
+                    <Detail label="Extração / Horário" value={extracaoInfo} />
+                  ) : null
+                }
+                return <ExtracaoDetail />
+              })()}
               
               {selecionada.estado && <Detail label="Estado" value={selecionada.estado} />}
             </div>

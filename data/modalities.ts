@@ -43,6 +43,12 @@ export const LOCATIONS: Location[] = [
   { id: 'goias', name: 'Goiás' },
 ]
 
-export const SPECIAL_TIMES: any[] = [
+export interface SpecialTime {
+  id: string
+  name: string
+  time: string
+}
+
+export const SPECIAL_TIMES: SpecialTime[] = [
   // Removido PONTO-CORUJA conforme solicitado
 ]

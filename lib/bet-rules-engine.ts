@@ -352,7 +352,7 @@ export function buscarCotacaoDinamica(modalityName: string): number | null {
     const numbers = modality.value.match(/(\d+(?:\.\d+)?)/g)
     if (numbers && numbers.length > 0) {
       // Pegar o maior número encontrado (geralmente é o multiplicador)
-      const maxNumber = Math.max(...numbers.map(n => parseFloat(n)))
+      const maxNumber = Math.max(...numbers.map((n: string) => parseFloat(n)))
       if (maxNumber >= 10) {
         return maxNumber
       }

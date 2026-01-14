@@ -81,16 +81,41 @@ export default function HeroBanner() {
         {banners.map((banner) => (
           <SwiperSlide key={banner.id}>
             <div
-              className="relative w-full overflow-hidden min-h-[400px] lg:min-h-[500px]"
+              className="relative w-full overflow-hidden"
               style={{
-                backgroundImage: banner.bannerImage
-                  ? `url(${banner.bannerImage})`
-                  : 'repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,255,255,.1) 35px, rgba(255,255,255,.1) 70px), linear-gradient(to bottom right, #fbbf24, #f59e0b, #fbbf24)',
-                backgroundSize: banner.bannerImage ? 'cover' : 'auto',
-                backgroundPosition: banner.bannerImage ? 'center center' : 'auto',
-                backgroundRepeat: 'no-repeat',
+                // Altura responsiva mantendo proporção 16:9
+                paddingTop: banner.bannerImage ? '56.25%' : '0', // 16:9 aspect ratio (9/16 = 0.5625)
+                minHeight: banner.bannerImage ? '0' : '400px',
               }}
             >
+              {/* Imagem do banner com responsividade perfeita */}
+              {banner.bannerImage && (
+                <img
+                  src={banner.bannerImage}
+                  alt={banner.title || 'Banner'}
+                  className="absolute top-0 left-0 w-full h-full object-cover"
+                  style={{
+                    objectPosition: 'center center',
+                  }}
+                  loading="lazy"
+                  onError={(e) => {
+                    // Fallback se a imagem não carregar
+                    e.currentTarget.style.display = 'none'
+                  }}
+                />
+              )}
+              
+              {/* Container com conteúdo ou background padrão */}
+              <div
+                className={`absolute inset-0 ${
+                  banner.bannerImage ? '' : 'min-h-[400px] lg:min-h-[500px]'
+                }`}
+                style={{
+                  backgroundImage: !banner.bannerImage
+                    ? 'repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,255,255,.1) 35px, rgba(255,255,255,.1) 70px), linear-gradient(to bottom right, #fbbf24, #f59e0b, #fbbf24)'
+                    : 'none',
+                }}
+              >
               {/* Se houver imagem de banner, mostra apenas a imagem sem elementos decorativos */}
               {!banner.bannerImage && (
                 // Banner sem imagem - mostra conteúdo padrão
@@ -195,6 +220,7 @@ export default function HeroBanner() {
                 </>
               )}
               </div>
+            </div>
             </div>
           </SwiperSlide>
         ))}

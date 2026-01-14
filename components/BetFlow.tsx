@@ -286,18 +286,24 @@ export default function BetFlow() {
   )
 }
 
-function getRequiredAnimalsPerBet(modalityId: string | null): number {
-  const id = modalityId ? Number(modalityId) : 0
-  switch (id) {
-    case 2: // Dupla de Grupo
-      return 2
-    case 3: // Terno de Grupo
-      return 3
-    case 4: // Quadra de Grupo
-      return 4
-    case 5: // Quina de Grupo (se usada)
-      return 5
-    default:
-      return 1 // Grupo simples ou outras modalidades
+function getRequiredAnimalsPerBet(modalityIdOrName: string | null): number {
+  if (!modalityIdOrName) return 1
+
+  const idNum = Number(modalityIdOrName)
+  if (!Number.isNaN(idNum)) {
+    if (idNum === 2) return 2 // Dupla de Grupo
+    if (idNum === 3) return 3 // Terno de Grupo
+    if (idNum === 4) return 4 // Quadra de Grupo
+    if (idNum === 5) return 5 // Quina de Grupo (se usada)
   }
+
+  const name = modalityIdOrName.toLowerCase()
+  if (name.includes('dupla')) return 2
+  if (name.includes('terno')) return 3
+  if (name.includes('quadra')) return 4
+  if (name.includes('quina')) return 5
+  if (name.includes('passe vai e vem')) return 2
+  if (name.includes('passe vai')) return 2
+
+  return 1 // grupo simples ou outras
 }

@@ -327,15 +327,54 @@ function getExpectedGroups(modalidade: ModalityType): number {
 // ============================================================================
 
 /**
+ * Busca a cotação dinâmica de uma modalidade a partir do nome.
+ * Retorna o multiplicador extraído da string de cotação (ex: "1x R$ 16.00" -> 16).
+ */
+export function buscarCotacaoDinamica(modalityName: string): number | null {
+  try {
+    // Importar MODALITIES (funciona tanto no cliente quanto no servidor)
+    const { MODALITIES } = require('@/data/modalities')
+    const modality = MODALITIES.find((m: any) => m.name === modalityName)
+    
+    if (!modality || !modality.value) {
+      return null
+    }
+
+    // Extrair o número da string "1x R$ 16.00" -> 16
+    // Pode ser "1x R$ 16.00" ou "16x" ou "R$ 16.00"
+    // Procura pelo primeiro número que aparece (geralmente o multiplicador)
+    const match = modality.value.match(/(\d+(?:\.\d+)?)/)
+    if (match) {
+      return parseFloat(match[1])
+    }
+
+    return null
+  } catch (error) {
+    // Em caso de erro, retorna null para usar a tabela fixa como fallback
+    return null
+  }
+}
+
+/**
  * Busca a odd (multiplicador) de uma modalidade para um intervalo de posições.
+ * 
+ * Primeiro tenta buscar a cotação dinâmica, se não encontrar, usa a tabela fixa.
  * 
  * NOTA: Estes valores são exemplos. Devem ser configurados conforme regras da banca.
  */
 export function buscarOdd(
   modalidade: ModalityType,
   pos_from: number,
-  pos_to: number
+  pos_to: number,
+  modalityName?: string
 ): number {
+  // Tentar buscar cotação dinâmica primeiro
+  if (modalityName) {
+    const cotacaoDinamica = buscarCotacaoDinamica(modalityName)
+    if (cotacaoDinamica !== null) {
+      return cotacaoDinamica
+    }
+  }
   const posKey = `${pos_from}-${pos_to}`
   
   // Tabela de odds por modalidade e intervalo

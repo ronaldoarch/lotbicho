@@ -194,7 +194,7 @@ export default function BetFlow() {
       const { pos_from, pos_to } = parsePosition(betData.position)
       const qtdPalpites = isNumberModality ? betData.numberBets.length : betData.animalBets.length
       const valorPorPalpite = calcularValorPorPalpite(betData.amount, qtdPalpites, betData.divisionType)
-      const odd = buscarOdd(modalityType, pos_from, pos_to)
+      const odd = buscarOdd(modalityType, pos_from, pos_to, betData.modalityName)
       
       let retornoTotal = 0
 

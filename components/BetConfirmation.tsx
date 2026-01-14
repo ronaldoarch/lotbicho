@@ -99,8 +99,8 @@ export default function BetConfirmation({ betData, saldoDisponivel, onConfirm, o
       const modalityType = modalityMap[betData.modalityName] || 'GRUPO'
       
       try {
-        // Buscar odd
-        const odd = buscarOdd(modalityType, pos_from, pos_to)
+        // Buscar odd (tenta cotação dinâmica primeiro, depois tabela fixa)
+        const odd = buscarOdd(modalityType, pos_from, pos_to, betData.modalityName)
         
         // Calcular retorno total (assumindo que todos os palpites acertam)
         let retornoTotal = 0

@@ -250,16 +250,22 @@ Crie o arquivo `scripts/cron/liquidar.sh`:
 API_URL="${API_URL:-http://localhost:3000}"
 ENDPOINT="${API_URL}/api/resultados/liquidar"
 
-# Fazer requisição POST
-curl -X POST "${ENDPOINT}" \
+# Fazer requisição POST (tenta monitor primeiro, fallback automático)
+RESPONSE=$(curl -s -X POST "${ENDPOINT}" \
   -H "Content-Type: application/json" \
-  -d '{}' \
-  --max-time 120 \
-  --silent \
-  --show-error
+  -d '{"usarMonitor": true}' \
+  -w "\nHTTP_CODE:%{http_code}" \
+  --max-time 60)
+
+HTTP_CODE=$(echo "$RESPONSE" | grep -oP 'HTTP_CODE:\K\d+' || echo "000")
+BODY=$(echo "$RESPONSE" | sed 's/HTTP_CODE:.*//')
 
 # Log do resultado
-echo "$(date): Liquidação executada"
+if [ "$HTTP_CODE" = "200" ]; then
+  echo "$(date): ✅ Liquidação executada com sucesso"
+else
+  echo "$(date): ❌ Erro na liquidação (HTTP $HTTP_CODE)"
+fi
 ```
 
 **Tornar executável**:
@@ -273,7 +279,7 @@ chmod +x scripts/cron/liquidar.sh
 crontab -e
 
 # Adicionar linha (executa a cada 5 minutos)
-*/10 * * * * /app/scripts/cron/liquidar.sh >> /var/log/liquidacao.log 2>&1
+*/5 * * * * /app/scripts/cron/liquidar.sh >> /var/log/liquidacao.log 2>&1
 ```
 
 ### Opção 3: Terminal do Coolify

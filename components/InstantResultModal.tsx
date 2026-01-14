@@ -5,16 +5,16 @@ import { useEffect, useState } from 'react'
 interface InstantResultModalProps {
   open: boolean
   onClose: () => void
+  resultado?: {
+    prizes: number[]
+    groups: number[]
+    premioTotal: number
+  } | null
 }
 
 const POSICOES = [1, 2, 3, 4, 5, 6, 7]
 
-function gerarNumero(): string {
-  // milhar aleatória (4 dígitos)
-  return Math.floor(1000 + Math.random() * 9000).toString()
-}
-
-export default function InstantResultModal({ open, onClose }: InstantResultModalProps) {
+export default function InstantResultModal({ open, onClose, resultado }: InstantResultModalProps) {
   const [countdown, setCountdown] = useState(5)
   const [numeros, setNumeros] = useState<string[]>([])
   const [revelados, setRevelados] = useState<number>(0)
@@ -24,8 +24,15 @@ export default function InstantResultModal({ open, onClose }: InstantResultModal
 
     // reset ao abrir
     setCountdown(5)
-    setNumeros(POSICOES.map(() => gerarNumero()))
     setRevelados(0)
+
+    // Usar resultado real se disponível, senão gerar números aleatórios
+    if (resultado && resultado.prizes && resultado.prizes.length > 0) {
+      setNumeros(resultado.prizes.map((p) => p.toString().padStart(4, '0')))
+    } else {
+      // Fallback: gerar números aleatórios
+      setNumeros(POSICOES.map(() => Math.floor(Math.random() * 10000).toString().padStart(4, '0')))
+    }
 
     // contagem regressiva 5s
     const timer = setInterval(() => {
@@ -39,7 +46,7 @@ export default function InstantResultModal({ open, onClose }: InstantResultModal
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [open])
+  }, [open, resultado])
 
   useEffect(() => {
     // após countdown zero, revela um a um
@@ -98,13 +105,26 @@ export default function InstantResultModal({ open, onClose }: InstantResultModal
         </div>
 
         {revelados >= POSICOES.length && (
-          <div className="mt-4 flex justify-center">
-            <button
-              onClick={onClose}
-              className="rounded-lg bg-blue px-4 py-2 text-white font-semibold hover:bg-blue/90 transition-colors"
-            >
-              Fechar
-            </button>
+          <div className="mt-4 space-y-3">
+            {resultado && resultado.premioTotal > 0 && (
+              <div className="rounded-lg bg-green-50 border-2 border-green-500 p-4 text-center">
+                <p className="text-sm font-semibold text-green-800 mb-1">Parabéns! Você ganhou:</p>
+                <p className="text-2xl font-bold text-green-900">R$ {resultado.premioTotal.toFixed(2)}</p>
+              </div>
+            )}
+            {resultado && resultado.premioTotal === 0 && (
+              <div className="rounded-lg bg-gray-50 border-2 border-gray-300 p-4 text-center">
+                <p className="text-sm font-semibold text-gray-700">Não houve prêmio desta vez</p>
+              </div>
+            )}
+            <div className="flex justify-center">
+              <button
+                onClick={onClose}
+                className="rounded-lg bg-blue px-4 py-2 text-white font-semibold hover:bg-blue/90 transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
           </div>
         )}
       </div>

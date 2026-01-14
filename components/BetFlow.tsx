@@ -34,6 +34,7 @@ export default function BetFlow() {
   const [activeTab, setActiveTab] = useState<'bicho' | 'loteria'>('bicho')
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   const [showInstantResult, setShowInstantResult] = useState(false)
+  const [instantResult, setInstantResult] = useState<{ prizes: number[]; groups: number[]; premioTotal: number } | null>(null)
 
   const MAX_PALPITES = 10
 
@@ -136,7 +137,13 @@ export default function BetFlow() {
           const data = await res.json().catch(() => ({}))
           throw new Error(data.error || 'Erro ao criar aposta')
         }
-        if (betData.instant) {
+        const data = await res.json()
+        if (betData.instant && data.aposta?.detalhes?.resultadoInstantaneo) {
+          setInstantResult({
+            prizes: data.aposta.detalhes.resultadoInstantaneo.prizes,
+            groups: data.aposta.detalhes.resultadoInstantaneo.groups,
+            premioTotal: data.aposta.detalhes.premioTotal || 0,
+          })
           setShowInstantResult(true)
         } else {
           alert('Aposta registrada com sucesso!')
@@ -304,7 +311,14 @@ export default function BetFlow() {
       )}
 
       {/* Modal de resultado instantâneo */}
-      <InstantResultModal open={showInstantResult} onClose={() => setShowInstantResult(false)} />
+      <InstantResultModal
+        open={showInstantResult}
+        onClose={() => {
+          setShowInstantResult(false)
+          setInstantResult(null)
+        }}
+        resultado={instantResult}
+      />
     </div>
   )
 }

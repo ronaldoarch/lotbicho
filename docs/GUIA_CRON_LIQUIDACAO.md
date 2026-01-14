@@ -19,7 +19,7 @@
 
 ## 🎯 Visão Geral
 
-O sistema de liquidação automática funciona através de um **cron job** que executa periodicamente (geralmente a cada 5-15 minutos) e chama o endpoint `/api/resultados/liquidar` para:
+O sistema de liquidação automática funciona através de um **cron job** que executa periodicamente (a cada 5 minutos) e chama o endpoint `/api/resultados/liquidar` para:
 
 1. Buscar apostas pendentes
 2. Buscar resultados oficiais das extrações
@@ -175,7 +175,7 @@ POST /api/resultados/liquidar
 4. Preencha:
    - **Title**: Liquidação Lot Bicho
    - **Address**: `https://seu-dominio.com/api/resultados/liquidar`
-   - **Schedule**: `*/10 * * * *` (a cada 10 minutos)
+   - **Schedule**: `*/5 * * * *` (a cada 5 minutos)
    - **Request Method**: POST
    - **Request Body**: `{}` (JSON vazio)
    - **Request Headers**: `Content-Type: application/json`
@@ -250,7 +250,7 @@ chmod +x scripts/cron/liquidar.sh
 # Editar crontab
 crontab -e
 
-# Adicionar linha (executa a cada 10 minutos)
+# Adicionar linha (executa a cada 5 minutos)
 */10 * * * * /app/scripts/cron/liquidar.sh >> /var/log/liquidacao.log 2>&1
 ```
 
@@ -322,7 +322,7 @@ cron.schedule('*/10 * * * *', async () => {
    **Basic Settings**:
    - **Title**: `Liquidação Lot Bicho`
    - **Address**: `https://seu-dominio.com/api/resultados/liquidar`
-   - **Schedule**: `*/10 * * * *` (a cada 10 minutos)
+   - **Schedule**: `*/5 * * * *` (a cada 5 minutos)
    
    **Request Settings**:
    - **Request Method**: `POST`
@@ -544,7 +544,7 @@ Resposta:
 - [ ] Endpoint `/api/resultados/liquidar` está funcionando
 - [ ] URL do endpoint está acessível publicamente (HTTPS)
 - [ ] Cron job criado no serviço externo ou servidor
-- [ ] Frequência configurada (recomendado: 10-15 minutos)
+- [ ] Frequência configurada (5 minutos - configuração atual)
 - [ ] Timeout configurado (mínimo 90 segundos)
 - [ ] Notificações configuradas (opcional)
 - [ ] Teste manual executado com sucesso

@@ -113,7 +113,10 @@ export async function POST(request: Request) {
           modality: string | null
           modalityName?: string | null
           animalBets: number[][]
+          numberBets?: string[]
           position: string | null
+          customPosition?: boolean
+          customPositionValue?: string
           amount: number
           divisionType: 'all' | 'each'
         }
@@ -137,8 +140,13 @@ export async function POST(request: Request) {
 
         const modalityType = modalityMap[betData.modalityName || ''] || 'GRUPO'
 
+        // Usar posição personalizada se estiver marcado, senão usar posição padrão
+        const positionToUse = betData.customPosition && betData.customPositionValue 
+          ? betData.customPositionValue.trim() 
+          : betData.position
+        
         // Parsear posição usando função helper
-        const { pos_from, pos_to } = parsePosition(betData.position)
+        const { pos_from, pos_to } = parsePosition(positionToUse)
 
         // Gerar resultado instantâneo
         resultadoInstantaneo = gerarResultadoInstantaneo(Math.max(pos_to, 7))

@@ -299,8 +299,8 @@ export async function POST(request: NextRequest) {
           
           // Se não encontrou resultados, mostrar exemplos para debug
           if (resultadosFiltrados.length === 0 && antes > 0) {
-            const exemplos = [...new Set(resultados.slice(0, 10).map(r => r.loteria).filter(Boolean))]
-            console.log(`   - Exemplos de loterias disponíveis: ${exemplos.join(', ')}`)
+            const loteriasUnicas = Array.from(new Set(resultados.slice(0, 10).map(r => r.loteria).filter(Boolean) as string[]))
+            console.log(`   - Exemplos de loterias disponíveis: ${loteriasUnicas.join(', ')}`)
             console.log(`   - ⚠️ Tentando liquidar sem filtro de loteria...`)
             // Se não encontrou com filtro, tentar sem filtro de loteria
             resultadosFiltrados = resultados

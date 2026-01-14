@@ -76,6 +76,7 @@ export default function MinhasApostasPage() {
                     <th className="px-4 py-3">Loteria/Horário</th>
                     <th className="px-4 py-3">Valor Total</th>
                     <th className="px-4 py-3">Valor/Palpite</th>
+                    <th className="px-4 py-3">Retorno Previsto</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3"></th>
                   </tr>
@@ -151,6 +152,9 @@ export default function MinhasApostasPage() {
                         </td>
                         <td className="px-4 py-3 text-xs text-gray-600">
                           {qtdPalpites > 0 ? `R$ ${valorPorPalpite.toFixed(2)}` : '—'}
+                        </td>
+                        <td className="px-4 py-3 text-xs font-semibold text-blue">
+                          R$ {Number(a.retornoPrevisto || 0).toFixed(2)}
                         </td>
                         <td className="px-4 py-3">
                           <span

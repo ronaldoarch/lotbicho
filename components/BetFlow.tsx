@@ -30,6 +30,7 @@ const INITIAL_BET_DATA: BetData = {
   numberBets: [],
   position: null,
   customPosition: false,
+  customPositionValue: '',
   amount: 2.0,
   divisionType: 'all',
   useBonus: false,
@@ -101,6 +102,42 @@ export default function BetFlow() {
 
   const handleNext = () => {
     if (currentStep === 2 && !step2Valid) return
+    
+    // Validar posição no step 3
+    if (currentStep === 3) {
+      if (!betData.customPosition && !betData.position) {
+        setAlertMessage({
+          title: 'Posição não selecionada',
+          message: 'Por favor, selecione uma posição ou marque "Personalizado" e digite uma posição válida.',
+        })
+        setShowAlert(true)
+        return
+      }
+      
+      if (betData.customPosition && (!betData.customPositionValue || betData.customPositionValue.trim() === '')) {
+        setAlertMessage({
+          title: 'Posição personalizada vazia',
+          message: 'Por favor, digite uma posição personalizada (ex: 1-5, 7, 5, etc.).',
+        })
+        setShowAlert(true)
+        return
+      }
+      
+      // Validar formato da posição personalizada
+      if (betData.customPosition && betData.customPositionValue) {
+        const customPos = betData.customPositionValue.trim()
+        // Aceita: números únicos (1, 2, 3...), ranges (1-5, 2-7...), ou formato "1º", "1-5", etc.
+        const isValidFormat = /^(\d+(-\d+)?|(\d+º(-\d+º)?))$/.test(customPos.replace(/\s/g, ''))
+        if (!isValidFormat) {
+          setAlertMessage({
+            title: 'Formato inválido',
+            message: 'Formato inválido. Use números ou ranges como: "1", "5", "1-5", "1-7", "7", etc.',
+          })
+          setShowAlert(true)
+          return
+        }
+      }
+    }
     const nextStep = currentStep + 1
     if (nextStep >= 3 && !isAuthenticated) {
       alert('Você precisa estar logado para continuar. Faça login para usar seu saldo.')

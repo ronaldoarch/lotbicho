@@ -5,6 +5,7 @@ import { POSITIONS } from '@/data/modalities'
 interface PositionAmountDivisionProps {
   position: string | null
   customPosition: boolean
+  customPositionValue: string
   amount: number
   divisionType: 'all' | 'each'
   useBonus: boolean
@@ -13,6 +14,7 @@ interface PositionAmountDivisionProps {
   qtdPalpites?: number
   onPositionChange: (position: string) => void
   onCustomPositionChange: (checked: boolean) => void
+  onCustomPositionValueChange: (value: string) => void
   onAmountChange: (amount: number) => void
   onDivisionTypeChange: (type: 'all' | 'each') => void
   onBonusToggle: (use: boolean) => void
@@ -21,6 +23,7 @@ interface PositionAmountDivisionProps {
 export default function PositionAmountDivision({
   position,
   customPosition,
+  customPositionValue,
   amount,
   divisionType,
   useBonus,
@@ -29,6 +32,7 @@ export default function PositionAmountDivision({
   qtdPalpites = 0,
   onPositionChange,
   onCustomPositionChange,
+  onCustomPositionValueChange,
   onAmountChange,
   onDivisionTypeChange,
   onBonusToggle,
@@ -106,12 +110,36 @@ export default function PositionAmountDivision({
             <input
               type="checkbox"
               checked={customPosition}
-              onChange={(e) => onCustomPositionChange(e.target.checked)}
+              onChange={(e) => {
+                onCustomPositionChange(e.target.checked)
+                if (!e.target.checked) {
+                  onPositionChange('')
+                }
+              }}
               className="h-5 w-5 accent-blue"
             />
             <span className="font-semibold text-gray-950">Personalizado</span>
           </label>
         </div>
+        
+        {/* Campo de posição personalizada */}
+        {customPosition && (
+          <div className="mt-4">
+            <label className="mb-2 block text-sm font-semibold text-gray-700">
+              Digite a posição personalizada:
+            </label>
+            <input
+              type="text"
+              value={customPositionValue}
+              onChange={(e) => onCustomPositionValueChange(e.target.value)}
+              placeholder="Ex: 1-5, 7, 5, 1-7, etc."
+              className="w-full rounded-lg border-2 border-gray-300 px-4 py-3 text-gray-950 focus:border-blue focus:outline-none"
+            />
+            <p className="mt-2 text-xs text-gray-500">
+              Exemplos: "1-5" (do 1º ao 5º), "7" (só o 7º), "5" (só o 5º), "1-7" (do 1º ao 7º)
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Amount */}

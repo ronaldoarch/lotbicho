@@ -45,6 +45,7 @@ export interface BetData {
   numberBets: string[] // lista de palpites numéricos (para modalidades como Milhar, Centena, Dezena)
   position: string | null
   customPosition: boolean
+  customPositionValue?: string
   amount: number
   divisionType: 'all' | 'each'
   useBonus: boolean

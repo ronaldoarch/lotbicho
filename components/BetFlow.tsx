@@ -135,7 +135,7 @@ export default function BetFlow() {
         if (!isValidFormat) {
           setAlertMessage({
             title: 'Formato inválido',
-            message: 'Formato inválido. Use números ou ranges como: "1", "5", "1-5", "1-7", "7", "1º", "1º-5º", etc.',
+            message: 'Formato inválido. Use números individuais (ex: "1", "2", "3", "5", "6", "7") ou ranges (ex: "1-5", "1-7", "2-6").',
           })
           setShowAlert(true)
           return
@@ -149,7 +149,7 @@ export default function BetFlow() {
         if (firstNum < 1 || firstNum > 7 || secondNum < 1 || secondNum > 7 || firstNum > secondNum) {
           setAlertMessage({
             title: 'Posição inválida',
-            message: 'As posições devem estar entre 1 e 7, e a primeira posição deve ser menor ou igual à segunda (ex: "1-5", "7", "1-7").',
+            message: 'As posições devem estar entre 1 e 7. Use números individuais (ex: "1", "2", "3", "5", "6", "7") ou ranges onde a primeira posição é menor ou igual à segunda (ex: "1-5", "2-6", "1-7").',
           })
           setShowAlert(true)
           return

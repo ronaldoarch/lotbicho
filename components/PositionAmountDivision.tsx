@@ -136,7 +136,7 @@ export default function PositionAmountDivision({
               className="w-full rounded-lg border-2 border-gray-300 px-4 py-3 text-gray-950 focus:border-blue focus:outline-none"
             />
             <p className="mt-2 text-xs text-gray-500">
-              Exemplos: "1-5" (do 1º ao 5º), "7" (só o 7º), "5" (só o 5º), "1-7" (do 1º ao 7º)
+              Exemplos: "1-5" (do 1º ao 5º), "7" (só o 7º), "5" (só o 5º), "3" (só o 3º), "2" (só o 2º), "6" (só o 6º), "1-7" (do 1º ao 7º)
             </p>
           </div>
         )}

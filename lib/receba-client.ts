@@ -7,14 +7,22 @@ export interface RecebaClientOptions {
 
 export async function recebaRequest<T = any>(path: string, options: RecebaClientOptions = {}, init?: RequestInit): Promise<T> {
   const url = `${options.baseUrl ?? DEFAULT_BASE_URL}${path}`
+  const apiKey = options.apiKey ?? process.env.RECEBA_API_KEY ?? ''
+  
+  // Headers conforme documentação oficial da Receba Online:
+  // - Accept: application/json (obrigatório)
+  // - Content-Type: application/json
+  // - Authorization: Bearer {key}
+  const headers: HeadersInit = {
+    'Accept': 'application/json', // Obrigatório conforme documentação
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${apiKey}`,
+    ...(init?.headers || {}),
+  }
+
   const res = await fetch(url, {
     ...init,
-    headers: {
-      'Accept': 'application/json', // Obrigatório conforme documentação
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${options.apiKey ?? process.env.RECEBA_API_KEY ?? ''}`,
-      ...(init?.headers || {}),
-    },
+    headers,
     cache: 'no-store',
   })
 

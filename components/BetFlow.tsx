@@ -228,7 +228,11 @@ export default function BetFlow() {
       }
 
       const modalityType = modalityMap[betData.modalityName] || 'GRUPO'
-      const { pos_from, pos_to } = parsePosition(betData.position)
+      // Usar posição personalizada se estiver marcado, senão usar posição padrão
+      const positionToUse = betData.customPosition && betData.customPositionValue 
+        ? betData.customPositionValue.trim() 
+        : betData.position
+      const { pos_from, pos_to } = parsePosition(positionToUse)
       const qtdPalpites = isNumberModality ? betData.numberBets.length : betData.animalBets.length
       const valorPorPalpite = calcularValorPorPalpite(betData.amount, qtdPalpites, betData.divisionType)
       const odd = buscarOdd(modalityType, pos_from, pos_to, betData.modalityName)
@@ -424,15 +428,23 @@ export default function BetFlow() {
           <PositionAmountDivision
             position={betData.position}
             customPosition={betData.customPosition}
+            customPositionValue={betData.customPositionValue || ''}
             amount={betData.amount}
             divisionType={betData.divisionType}
             useBonus={betData.useBonus}
             bonusAmount={betData.bonusAmount}
             saldoDisponivel={isAuthenticated ? userSaldo + (betData.useBonus ? betData.bonusAmount : 0) : undefined}
             qtdPalpites={isNumberModality ? betData.numberBets.length : betData.animalBets.length}
-            onPositionChange={(pos) => setBetData((prev) => ({ ...prev, position: pos }))}
-            onCustomPositionChange={(checked) =>
-              setBetData((prev) => ({ ...prev, customPosition: checked }))
+            onPositionChange={(pos) => setBetData((prev) => ({ ...prev, position: pos, customPosition: false }))}
+            onCustomPositionChange={(checked) => {
+              setBetData((prev) => ({ 
+                ...prev, 
+                customPosition: checked,
+                position: checked ? null : prev.position // Limpa posição padrão se marcar personalizado
+              }))
+            }}
+            onCustomPositionValueChange={(value) =>
+              setBetData((prev) => ({ ...prev, customPositionValue: value }))
             }
             onAmountChange={(amount) => setBetData((prev) => ({ ...prev, amount }))}
             onDivisionTypeChange={(type) => setBetData((prev) => ({ ...prev, divisionType: type }))}

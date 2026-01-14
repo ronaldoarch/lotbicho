@@ -180,7 +180,7 @@ export default function LocationSelection({
                         <div className="mt-1 text-sm text-gray-700">
                           Fecha às <strong>{ext.closeStr}</strong>
                           {ext.realCloseTime && ext.realCloseTime !== ext.closeTime && (
-                            <span className="text-xs text-gray-500"> (real: {ext.realCloseTime})</span>
+                            <span className="text-xs text-gray-500"> (apuracao: {ext.closeTime})</span>
                           )}
                         </div>
                         <div className="mt-1 text-xs text-gray-500">Dias: {ext.days}</div>

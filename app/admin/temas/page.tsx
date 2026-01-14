@@ -114,7 +114,12 @@ export default function TemasPage() {
     setEditingTema(tema)
     setFormData({
       nome: tema.nome,
-      cores: tema.cores,
+      cores: {
+        ...tema.cores,
+        textoLink: tema.cores.textoLink || tema.cores.primaria,
+        textoParagrafo: tema.cores.textoParagrafo || tema.cores.texto,
+        textoTitulo: tema.cores.textoTitulo || tema.cores.texto,
+      },
     })
     setShowForm(true)
   }

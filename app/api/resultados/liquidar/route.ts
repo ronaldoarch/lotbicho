@@ -138,61 +138,85 @@ export async function POST(request: NextRequest) {
       console.log(`   - Modalidade: ${aposta.modalidade || 'N/A'}`)
     })
 
-    // Buscar resultados oficiais (com timeout maior e retry)
-    let resultadosResponse
+    // Buscar resultados usando a API interna (que usa /api/resultados/organizados)
+    // Isso é mais rápido e confiável do que chamar a API externa diretamente
     let resultadosData
-    const maxRetries = 2
     let lastError: Error | null = null
     
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`🔄 Buscando resultados via API interna...`)
+      
+      // Usar a API interna que já está funcionando na página de resultados
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
+                     (request.headers.get('host') ? `https://${request.headers.get('host')}` : 'http://localhost:3000')
+      
+      const resultadosResponse = await fetch(
+        `${baseUrl}/api/resultados`,
+        { 
+          cache: 'no-store',
+          signal: AbortSignal.timeout(30000) // 30 segundos timeout
+        }
+      )
+
+      if (!resultadosResponse.ok) {
+        throw new Error(`Erro ao buscar resultados: ${resultadosResponse.status}`)
+      }
+      
+      resultadosData = await resultadosResponse.json()
+      console.log(`✅ Resultados obtidos com sucesso via API interna`)
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error))
+      console.error(`❌ Erro ao buscar resultados via API interna:`, error)
+      
+      // Fallback: tentar API externa diretamente se a interna falhar
+      console.log(`🔄 Tentando API externa como fallback...`)
       try {
-        console.log(`🔄 Tentativa ${attempt}/${maxRetries} de buscar resultados oficiais...`)
-        resultadosResponse = await fetch(
-          `${process.env.BICHO_CERTO_API ?? 'https://okgkgswwkk8ows0csow0c4gg.agenciamidas.com/api/resultados'}`,
+        const RAW_SOURCE = process.env.BICHO_CERTO_API ?? 'https://okgkgswwkk8ows0csow0c4gg.agenciamidas.com/api/resultados'
+        const SOURCE_ROOT = RAW_SOURCE.replace(/\/api\/resultados$/, '')
+        
+        const fallbackResponse = await fetch(
+          `${SOURCE_ROOT}/api/resultados/organizados`,
           { 
             cache: 'no-store',
-            signal: AbortSignal.timeout(60000) // 60 segundos timeout por tentativa
+            signal: AbortSignal.timeout(30000)
           }
         )
-
-        if (!resultadosResponse.ok) {
-          throw new Error(`Erro ao buscar resultados oficiais: ${resultadosResponse.status}`)
-        }
         
-        resultadosData = await resultadosResponse.json()
-        console.log(`✅ Resultados obtidos com sucesso na tentativa ${attempt}`)
-        break // Sucesso, sair do loop
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error))
-        if (error instanceof Error && error.name === 'TimeoutError') {
-          console.error(`⏱️ Timeout na tentativa ${attempt}/${maxRetries}`)
-          if (attempt < maxRetries) {
-            console.log(`🔄 Aguardando 2 segundos antes da próxima tentativa...`)
-            await new Promise(resolve => setTimeout(resolve, 2000))
-            continue
-          }
+        if (fallbackResponse.ok) {
+          const fallbackData = await fallbackResponse.json()
+          // Converter formato organizados para formato esperado
+          const organizados = fallbackData?.organizados || {}
+          let results: any[] = []
+          Object.entries(organizados).forEach(([tabela, horarios]) => {
+            Object.entries(horarios as Record<string, any[]>).forEach(([horario, lista]) => {
+              const arr = (lista || []).map((item: any, idx: number) => ({
+                position: item.colocacao || `${item.posicao || idx + 1}°`,
+                milhar: item.numero || item.milhar || '',
+                loteria: tabela,
+                horario,
+                date: item.data_extracao || item.dataExtracao || item.data || item.date || '',
+                dataExtracao: item.data_extracao || item.dataExtracao || item.data || item.date || '',
+              }))
+              results = results.concat(arr)
+            })
+          })
+          resultadosData = { results }
+          console.log(`✅ Resultados obtidos via API externa (fallback)`)
         } else {
-          console.error(`❌ Erro na tentativa ${attempt}:`, error)
-          if (attempt < maxRetries) {
-            await new Promise(resolve => setTimeout(resolve, 2000))
-            continue
-          }
+          throw new Error(`Fallback também falhou: ${fallbackResponse.status}`)
         }
+      } catch (fallbackError) {
+        console.error(`❌ Fallback também falhou:`, fallbackError)
+        return NextResponse.json({
+          error: 'Erro ao buscar resultados oficiais',
+          message: lastError?.name === 'TimeoutError' 
+            ? 'A API de resultados demorou muito para responder.'
+            : `Erro ao buscar resultados: ${lastError?.message || 'Erro desconhecido'}`,
+          processadas: 0,
+          liquidadas: 0,
+          premioTotal: 0,
+        }, { status: 504 })
       }
-    }
-    
-    // Se todas as tentativas falharam
-    if (!resultadosData) {
-      console.error('❌ Falha ao buscar resultados após todas as tentativas')
-      return NextResponse.json({
-        error: 'Erro ao buscar resultados oficiais',
-        message: lastError?.name === 'TimeoutError' 
-          ? 'A API de resultados demorou muito para responder após múltiplas tentativas.'
-          : `Erro ao buscar resultados: ${lastError?.message || 'Erro desconhecido'}`,
-        processadas: 0,
-        liquidadas: 0,
-        premioTotal: 0,
-      }, { status: 504 })
     }
 
     const resultados: ResultadoItem[] = resultadosData.results || resultadosData.resultados || []

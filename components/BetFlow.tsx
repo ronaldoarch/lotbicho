@@ -125,13 +125,31 @@ export default function BetFlow() {
       
       // Validar formato da posição personalizada
       if (betData.customPosition && betData.customPositionValue) {
-        const customPos = betData.customPositionValue.trim()
+        const customPos = betData.customPositionValue.trim().replace(/\s/g, '')
+        
         // Aceita: números únicos (1, 2, 3...), ranges (1-5, 2-7...), ou formato "1º", "1-5", etc.
-        const isValidFormat = /^(\d+(-\d+)?|(\d+º(-\d+º)?))$/.test(customPos.replace(/\s/g, ''))
+        // Remove "º" e valida apenas números e hífen
+        const cleanedPos = customPos.replace(/º/g, '')
+        const isValidFormat = /^\d+(-\d+)?$/.test(cleanedPos)
+        
         if (!isValidFormat) {
           setAlertMessage({
             title: 'Formato inválido',
-            message: 'Formato inválido. Use números ou ranges como: "1", "5", "1-5", "1-7", "7", etc.',
+            message: 'Formato inválido. Use números ou ranges como: "1", "5", "1-5", "1-7", "7", "1º", "1º-5º", etc.',
+          })
+          setShowAlert(true)
+          return
+        }
+        
+        // Validar que os números são válidos (entre 1 e 7)
+        const parts = cleanedPos.split('-')
+        const firstNum = parseInt(parts[0], 10)
+        const secondNum = parts[1] ? parseInt(parts[1], 10) : firstNum
+        
+        if (firstNum < 1 || firstNum > 7 || secondNum < 1 || secondNum > 7 || firstNum > secondNum) {
+          setAlertMessage({
+            title: 'Posição inválida',
+            message: 'As posições devem estar entre 1 e 7, e a primeira posição deve ser menor ou igual à segunda (ex: "1-5", "7", "1-7").',
           })
           setShowAlert(true)
           return

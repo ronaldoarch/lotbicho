@@ -5,7 +5,14 @@ import { ANIMALS } from '@/data/animals'
 import { MODALITIES } from '@/data/modalities'
 import { BetData } from '@/types/bet'
 import { parsePosition, formatarPosicao } from '@/lib/position-parser'
-import { calcularValorPorPalpite } from '@/lib/bet-rules-engine'
+import { 
+  calcularValorPorPalpite, 
+  calcularNumero,
+  calcularGrupo,
+  buscarOdd,
+  calcularPremioUnidade,
+  type ModalityType 
+} from '@/lib/bet-rules-engine'
 import { getExtracaoById, formatarExtracaoHorario, type Extracao } from '@/lib/extracao-helper'
 
 interface BetConfirmationProps {
@@ -57,7 +64,75 @@ export default function BetConfirmation({ betData, saldoDisponivel, onConfirm, o
       )
     : null
 
+  const { pos_from, pos_to } = betData.position 
+    ? parsePosition(betData.position)
+    : { pos_from: 1, pos_to: 1 }
+
   const [extracaoInfo, setExtracaoInfo] = useState<string>('—')
+  const [retornoPrevisto, setRetornoPrevisto] = useState<number>(0)
+
+  // Calcular retorno previsto
+  useEffect(() => {
+    const calcularRetorno = () => {
+      if (!betData.modalityName || qtdPalpites === 0) {
+        setRetornoPrevisto(0)
+        return
+      }
+
+      // Mapear nome da modalidade para tipo
+      const modalityMap: Record<string, ModalityType> = {
+        'Grupo': 'GRUPO',
+        'Dupla de Grupo': 'DUPLA_GRUPO',
+        'Terno de Grupo': 'TERNO_GRUPO',
+        'Quadra de Grupo': 'QUADRA_GRUPO',
+        'Dezena': 'DEZENA',
+        'Centena': 'CENTENA',
+        'Milhar': 'MILHAR',
+        'Dezena Invertida': 'DEZENA_INVERTIDA',
+        'Centena Invertida': 'CENTENA_INVERTIDA',
+        'Milhar Invertida': 'MILHAR_INVERTIDA',
+        'Milhar/Centena': 'MILHAR_CENTENA',
+        'Passe vai': 'PASSE',
+        'Passe vai e vem': 'PASSE_VAI_E_VEM',
+      }
+
+      const modalityType = modalityMap[betData.modalityName] || 'GRUPO'
+      
+      try {
+        // Buscar odd
+        const odd = buscarOdd(modalityType, pos_from, pos_to)
+        
+        // Calcular retorno total (assumindo que todos os palpites acertam)
+        let retornoTotal = 0
+
+        if (isNumberModality) {
+          // Para modalidades numéricas
+          for (const numero of numberBets) {
+            const calculation = calcularNumero(modalityType, numero, pos_from, pos_to, valorPorPalpite)
+            const premioUnidade = calcularPremioUnidade(odd, calculation.unitValue)
+            // Assumir 1 acerto por palpite (melhor caso)
+            retornoTotal += premioUnidade
+          }
+        } else {
+          // Para modalidades de grupo
+          for (const animalBet of selectedGroups) {
+            const qtdGrupos = animalBet.length
+            const calculation = calcularGrupo(modalityType, qtdGrupos, pos_from, pos_to, valorPorPalpite)
+            const premioUnidade = calcularPremioUnidade(odd, calculation.unitValue)
+            // Assumir 1 acerto por palpite (melhor caso)
+            retornoTotal += premioUnidade
+          }
+        }
+
+        setRetornoPrevisto(retornoTotal)
+      } catch (error) {
+        console.error('Erro ao calcular retorno previsto:', error)
+        setRetornoPrevisto(0)
+      }
+    }
+
+    calcularRetorno()
+  }, [betData.modalityName, betData.position, qtdPalpites, valorPorPalpite, isNumberModality, numberBets, selectedGroups, pos_from, pos_to])
   
   useEffect(() => {
     const loadExtracao = async () => {
@@ -178,6 +253,17 @@ export default function BetConfirmation({ betData, saldoDisponivel, onConfirm, o
           <h3 className="mb-2 font-semibold text-gray-700">Valor Digitado:</h3>
           <p className="text-lg font-bold text-gray-950">
             R$ {betData.amount.toFixed(2)} {betData.divisionType === 'each' ? 'por palpite' : 'total'}
+          </p>
+        </div>
+
+        {/* Retorno Previsto */}
+        <div>
+          <h3 className="mb-2 font-semibold text-gray-700">Retorno Previsto:</h3>
+          <p className="text-lg font-bold text-blue">
+            R$ {retornoPrevisto.toFixed(2)}
+          </p>
+          <p className="text-sm text-gray-500">
+            Valor máximo possível se todos os palpites acertarem
           </p>
         </div>
 

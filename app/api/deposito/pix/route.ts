@@ -93,19 +93,26 @@ export async function POST(req: NextRequest) {
     }
 
     // Log do payload (sem dados sensíveis) para debug
-    console.log('Criando PIX cashin:', {
+    console.log('=== DEBUG PIX CASHIN ===')
+    console.log('Base URL:', process.env.RECEBA_BASE_URL || 'https://sandbox.receba.online')
+    console.log('Platform ID:', platformId ? `${platformId.substring(0, 8)}...` : 'MISSING')
+    console.log('API Key:', apiKey ? `${apiKey.substring(0, 10)}...` : 'MISSING')
+    console.log('Payload:', {
       name: pixPayload.name,
       email: pixPayload.email,
-      phone: pixPayload.phone ? '***' : 'missing',
-      document: pixPayload.document ? '***' : 'missing',
+      phone: pixPayload.phone ? `${pixPayload.phone.substring(0, 3)}***` : 'missing',
+      document: pixPayload.document ? `${pixPayload.document.substring(0, 3)}***` : 'missing',
       amount: pixPayload.amount,
-      platform: pixPayload.platform ? '***' : 'missing',
+      platform: pixPayload.platform ? `${pixPayload.platform.substring(0, 8)}...` : 'missing',
       reference: pixPayload.reference,
     })
+    console.log('========================')
 
     // Criar pagamento PIX via Receba Online
     // Passar a API key explicitamente para garantir que está sendo usada
-    const pixResponse = await recebaCreatePix({ apiKey }, pixPayload)
+    console.log('Enviando requisição para:', `${process.env.RECEBA_BASE_URL || 'https://sandbox.receba.online'}/api/v1/transaction/pix/cashin`)
+    const pixResponse = await recebaCreatePix({ apiKey, baseUrl: process.env.RECEBA_BASE_URL }, pixPayload)
+    console.log('Resposta recebida:', pixResponse)
 
     // A resposta da API retorna: { transaction: [{ qr_code, qr_code_image, id, status, ... }] }
     const transaction = pixResponse.transaction?.[0]

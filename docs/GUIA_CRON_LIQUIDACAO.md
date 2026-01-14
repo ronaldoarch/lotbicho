@@ -485,28 +485,34 @@ Resposta:
 
 ### 1. Frequência de Execução
 
-**Recomendado**: A cada 10-15 minutos
+**Configuração Atual**: A cada 5 minutos
 
-- **Muito frequente** (1-5 min): Pode sobrecarregar o servidor
+- **Frequência atual**: `*/5 * * * *` (a cada 5 minutos)
+- **Muito frequente** (1-2 min): Pode sobrecarregar o servidor
 - **Muito espaçado** (30+ min): Usuários esperam muito pelos resultados
 
 **Cron Expression**:
 ```
-*/10 * * * *  # A cada 10 minutos
-*/15 * * * *  # A cada 15 minutos
+*/5 * * * *   # A cada 5 minutos (configuração atual)
+*/10 * * * *  # A cada 10 minutos (alternativa)
+*/15 * * * *  # A cada 15 minutos (alternativa)
 ```
 
 ### 2. Horários de Execução
 
-**Recomendado**: Executar durante horários de extrações ativas
+**Configuração Atual**: Executar a cada 5 minutos durante todo o dia
 
-- **Manhã**: 08:00 - 12:00
-- **Tarde**: 14:00 - 18:00
-- **Noite**: 19:00 - 23:00
+- **Horário**: 24 horas (executa continuamente)
+- **Frequência**: A cada 5 minutos
 
 **Cron Expression**:
 ```
-*/10 8-23 * * *  # A cada 10 minutos das 8h às 23h
+*/5 * * * *  # A cada 5 minutos (configuração atual)
+```
+
+**Alternativa com horários específicos**:
+```
+*/5 8-23 * * *  # A cada 5 minutos das 8h às 23h
 ```
 
 ### 3. Monitoramento

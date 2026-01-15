@@ -888,11 +888,15 @@ export async function POST(request: NextRequest) {
         }
         
         // Tentar encontrar o melhor match entre os horários disponíveis
+        // Converter Map para Array para compatibilidade com ES5
+        const resultadosPorHorarioArray = Array.from(resultadosPorHorario.entries())
+        
         for (const horarioParaMatch of horariosParaMatch) {
           const horarioNormalizado = horarioParaMatch.toLowerCase()
           
           // Buscar match exato primeiro
-          for (const [horarioKey, resultados] of resultadosPorHorario.entries()) {
+          for (let i = 0; i < resultadosPorHorarioArray.length; i++) {
+            const [horarioKey, resultados] = resultadosPorHorarioArray[i]
             const horarioKeyLower = horarioKey.toLowerCase()
             
             // Match exato
@@ -918,7 +922,8 @@ export async function POST(request: NextRequest) {
           const horarioNormalizado = horariosParaMatch[0].toLowerCase()
           const horaAposta = horarioNormalizado.split(':')[0] || horarioNormalizado.split('h')[0] || horarioNormalizado
           
-          for (const [horarioKey, resultados] of resultadosPorHorario.entries()) {
+          for (let i = 0; i < resultadosPorHorarioArray.length; i++) {
+            const [horarioKey, resultados] = resultadosPorHorarioArray[i]
             const horarioKeyLower = horarioKey.toLowerCase()
             const horaKey = horarioKeyLower.split(':')[0] || horarioKeyLower.split('h')[0] || horarioKeyLower
             if (horaAposta === horaKey) {
@@ -932,7 +937,8 @@ export async function POST(request: NextRequest) {
         // Se não encontrou por horário da aposta, usar o horário com mais resultados
         if (resultadosDoHorario.length === 0) {
           let maxResultados = 0
-          for (const [horarioKey, resultados] of resultadosPorHorario.entries()) {
+          for (let i = 0; i < resultadosPorHorarioArray.length; i++) {
+            const [horarioKey, resultados] = resultadosPorHorarioArray[i]
             if (resultados.length > maxResultados) {
               maxResultados = resultados.length
               horarioSelecionado = horarioKey

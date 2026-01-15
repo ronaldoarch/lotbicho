@@ -874,13 +874,40 @@ export async function POST(request: NextRequest) {
           }
         }
         
-        if (extracaoParaHorarioNovo && loteriaNome && aposta.horario && aposta.horario !== 'null') {
+        if (extracaoParaHorarioNovo && loteriaNome) {
           try {
-            const horarioExtracao = aposta.horario.trim()
-            const horarioReal = getHorarioRealApuracao(loteriaNome, horarioExtracao)
-            if (horarioReal) {
-              horariosParaMatch.push(horarioReal.startTimeReal)
-              horariosParaMatch.push(horarioReal.closeTimeReal)
+            // Se tem horário na aposta, buscar horário real específico
+            if (aposta.horario && aposta.horario !== 'null') {
+              const horarioExtracao = aposta.horario.trim()
+              const horarioReal = getHorarioRealApuracao(loteriaNome, horarioExtracao)
+              if (horarioReal) {
+                horariosParaMatch.push(horarioReal.startTimeReal)
+                horariosParaMatch.push(horarioReal.closeTimeReal)
+              }
+            } else {
+              // Se não tem horário na aposta, buscar TODOS os horários reais possíveis para esta extração
+              // Isso ajuda a encontrar o resultado correto mesmo quando o horário não foi salvo
+              const { horariosReaisApuracao } = await import('@/data/horarios-reais-apuracao')
+              const nomeNormalizado = loteriaNome.toUpperCase().trim()
+              
+              horariosReaisApuracao.forEach((horarioReal) => {
+                if (horarioReal.name.toUpperCase() === nomeNormalizado) {
+                  // Adicionar horário interno (time) e horários reais de apuração
+                  horariosParaMatch.push(horarioReal.time)
+                  horariosParaMatch.push(horarioReal.startTimeReal)
+                  horariosParaMatch.push(horarioReal.closeTimeReal)
+                  
+                  // Também adicionar variações do horário interno (ex: "15:40" -> "15h", "15")
+                  const [hora] = horarioReal.time.split(':')
+                  if (hora) {
+                    horariosParaMatch.push(`${hora}h`)
+                    horariosParaMatch.push(hora)
+                  }
+                }
+              })
+              
+              console.log(`   📅 Aposta sem horário: buscando todos os horários possíveis para "${loteriaNome}"`)
+              console.log(`      Horários para match: ${horariosParaMatch.slice(0, 10).join(', ')}...`)
             }
           } catch (error) {
             // Ignorar erro
@@ -934,15 +961,57 @@ export async function POST(request: NextRequest) {
           }
         }
         
-        // Se não encontrou por horário da aposta, usar o horário com mais resultados
+        // Se não encontrou por horário da aposta, usar estratégia inteligente:
+        // 1. Se temos horários reais de apuração, usar o horário mais recente (mais próximo do horário de apuração)
+        // 2. Caso contrário, usar o horário com mais resultados
         if (resultadosDoHorario.length === 0) {
-          let maxResultados = 0
-          for (let i = 0; i < resultadosPorHorarioArray.length; i++) {
-            const [horarioKey, resultados] = resultadosPorHorarioArray[i]
-            if (resultados.length > maxResultados) {
-              maxResultados = resultados.length
-              horarioSelecionado = horarioKey
-              resultadosDoHorario = resultados
+          // Tentar encontrar o horário mais recente baseado nos horários reais de apuração
+          if (horariosParaMatch.length > 0) {
+            // Converter horários para minutos totais para comparação
+            const horariosParaMatchMinutos = horariosParaMatch.map(h => {
+              const match = h.match(/(\d{1,2})[h:](\d{2})?/)
+              if (match) {
+                const horas = parseInt(match[1], 10)
+                const minutos = match[2] ? parseInt(match[2], 10) : 0
+                return horas * 60 + minutos
+              }
+              return 0
+            }).filter(m => m > 0)
+            
+            if (horariosParaMatchMinutos.length > 0) {
+              const horarioMaisRecente = Math.max(...horariosParaMatchMinutos)
+              
+              // Buscar o horário de resultado mais próximo do horário mais recente
+              let menorDiferenca = Infinity
+              for (let i = 0; i < resultadosPorHorarioArray.length; i++) {
+                const [horarioKey, resultados] = resultadosPorHorarioArray[i]
+                const match = horarioKey.match(/(\d{1,2})[h:](\d{2})?/)
+                if (match) {
+                  const horas = parseInt(match[1], 10)
+                  const minutos = match[2] ? parseInt(match[2], 10) : 0
+                  const minutosTotais = horas * 60 + minutos
+                  
+                  const diferenca = Math.abs(horarioMaisRecente - minutosTotais)
+                  if (diferenca < menorDiferenca) {
+                    menorDiferenca = diferenca
+                    horarioSelecionado = horarioKey
+                    resultadosDoHorario = resultados
+                  }
+                }
+              }
+            }
+          }
+          
+          // Se ainda não encontrou, usar o horário com mais resultados (fallback)
+          if (resultadosDoHorario.length === 0) {
+            let maxResultados = 0
+            for (let i = 0; i < resultadosPorHorarioArray.length; i++) {
+              const [horarioKey, resultados] = resultadosPorHorarioArray[i]
+              if (resultados.length > maxResultados) {
+                maxResultados = resultados.length
+                horarioSelecionado = horarioKey
+                resultadosDoHorario = resultados
+              }
             }
           }
         }

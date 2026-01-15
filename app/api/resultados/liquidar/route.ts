@@ -663,18 +663,92 @@ export async function POST(request: NextRequest) {
           console.log(`   - Pulando filtro de loteria (extração não encontrada ou inválida)`)
         }
 
-        // Só filtrar por horário se houver horário definido e não for null
-        if (aposta.horario && aposta.horario !== 'null' && resultadosFiltrados.length > 0) {
-          const horarioAposta = aposta.horario.trim()
+        // IMPORTANTE: Filtrar por horário usando o horário REAL de apuração se disponível
+        // O horário da aposta pode ser diferente do horário do resultado (ex: aposta 16:45, resultado 17:00)
+        if (resultadosFiltrados.length > 0) {
           const antes = resultadosFiltrados.length
-          resultadosFiltrados = resultadosFiltrados.filter((r) => {
-            const rHorario = r.horario?.trim() || ''
-            // Comparação flexível de horário (pode ser "15:03" ou "15:03:00")
-            return rHorario === horarioAposta || 
-                   rHorario.startsWith(horarioAposta) || 
-                   horarioAposta.startsWith(rHorario)
-          })
-          console.log(`   - Após filtro de horário "${horarioAposta}": ${resultadosFiltrados.length} resultados (antes: ${antes})`)
+          
+          // Tentar encontrar horário real de apuração para usar no filtro
+          let horarioParaFiltrar: string[] = []
+          
+          // Adicionar horário da aposta primeiro
+          if (aposta.horario && aposta.horario !== 'null') {
+            horarioParaFiltrar.push(aposta.horario.trim())
+          }
+          
+          // Buscar extração para obter horário real de apuração
+          let extracaoParaHorario = null
+          if (aposta.loteria && /^\d+$/.test(aposta.loteria)) {
+            try {
+              const { extracoes } = await import('@/data/extracoes')
+              const extracaoId = parseInt(aposta.loteria)
+              extracaoParaHorario = extracoes.find((e: any) => e.id === extracaoId)
+            } catch (error) {
+              // Ignorar erro
+            }
+          }
+          
+          // Se encontramos extração, buscar horário real de apuração
+          if (extracaoParaHorario && loteriaNome && aposta.horario && aposta.horario !== 'null') {
+            try {
+              const horarioExtracao = aposta.horario.trim()
+              const horarioReal = getHorarioRealApuracao(loteriaNome, horarioExtracao)
+              
+              if (horarioReal) {
+                // Adicionar horário inicial e final de apuração para busca mais ampla
+                horarioParaFiltrar.push(horarioReal.startTimeReal)
+                horarioParaFiltrar.push(horarioReal.closeTimeReal)
+                
+                // Também adicionar variações do horário (ex: "17:00", "17h", "17")
+                const [horaInicial] = horarioReal.startTimeReal.split(':')
+                const [horaFinal] = horarioReal.closeTimeReal.split(':')
+                horarioParaFiltrar.push(`${horaInicial}:00`, `${horaInicial}h`, horaInicial)
+                horarioParaFiltrar.push(`${horaFinal}:00`, `${horaFinal}h`, horaFinal)
+                
+                console.log(`   📅 Usando horários reais para filtro: ${horarioReal.startTimeReal} - ${horarioReal.closeTimeReal}`)
+              } else {
+                // Se não encontrou horário real, usar horário da extração como fallback
+                if (extracaoParaHorario.time) {
+                  horarioParaFiltrar.push(extracaoParaHorario.time)
+                }
+                if (extracaoParaHorario.closeTime) {
+                  horarioParaFiltrar.push(extracaoParaHorario.closeTime)
+                }
+              }
+            } catch (error) {
+              // Ignorar erro, usar apenas horário da aposta
+            }
+          }
+          
+          // Remover duplicatas e valores vazios
+          horarioParaFiltrar = Array.from(new Set(horarioParaFiltrar.filter(h => h)))
+          
+          if (horarioParaFiltrar.length > 0) {
+            resultadosFiltrados = resultadosFiltrados.filter((r) => {
+              const rHorario = (r.horario?.trim() || '').toLowerCase()
+              
+              // Verificar se o horário do resultado corresponde a algum dos horários para filtrar
+              return horarioParaFiltrar.some(horarioFiltro => {
+                const horarioFiltroLower = horarioFiltro.toLowerCase()
+                
+                // Match exato
+                if (rHorario === horarioFiltroLower) return true
+                
+                // Match por início (ex: "17:00" matcha "17:00:00")
+                if (rHorario.startsWith(horarioFiltroLower) || horarioFiltroLower.startsWith(rHorario)) return true
+                
+                // Match por hora apenas (ex: "17:00" matcha "17h" ou "17")
+                const rHora = rHorario.split(':')[0] || rHorario.split('h')[0] || rHorario
+                const filtroHora = horarioFiltroLower.split(':')[0] || horarioFiltroLower.split('h')[0] || horarioFiltroLower
+                if (rHora === filtroHora) return true
+                
+                return false
+              })
+            })
+            console.log(`   - Após filtro de horário (${horarioParaFiltrar.join(', ')}): ${resultadosFiltrados.length} resultados (antes: ${antes})`)
+          } else {
+            console.log(`   - Pulando filtro de horário (nenhum horário disponível para filtrar)`)
+          }
         } else if (!aposta.horario || aposta.horario === 'null') {
           console.log(`   - Pulando filtro de horário (horário não definido ou null)`)
         }

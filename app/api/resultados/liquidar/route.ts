@@ -944,19 +944,57 @@ export async function POST(request: NextRequest) {
           if (resultadosDoHorario.length > 0) break
         }
         
-        // Se ainda não encontrou, tentar match por hora apenas
+        // Se ainda não encontrou, tentar match por hora apenas (mas apenas se não houver múltiplos horários na mesma hora)
+        // IMPORTANTE: Evitar match apenas por hora quando há múltiplos horários (ex: 20:11 vs 20:40)
         if (resultadosDoHorario.length === 0 && horariosParaMatch.length > 0) {
           const horarioNormalizado = horariosParaMatch[0].toLowerCase()
           const horaAposta = horarioNormalizado.split(':')[0] || horarioNormalizado.split('h')[0] || horarioNormalizado
           
-          for (let i = 0; i < resultadosPorHorarioArray.length; i++) {
-            const [horarioKey, resultados] = resultadosPorHorarioArray[i]
+          // Verificar se há múltiplos horários na mesma hora nos resultados disponíveis
+          const horariosNaMesmaHora = resultadosPorHorarioArray.filter(([horarioKey]) => {
             const horarioKeyLower = horarioKey.toLowerCase()
             const horaKey = horarioKeyLower.split(':')[0] || horarioKeyLower.split('h')[0] || horarioKeyLower
-            if (horaAposta === horaKey) {
-              horarioSelecionado = horarioKey
-              resultadosDoHorario = resultados
-              break
+            return horaKey === horaAposta
+          })
+          
+          // Se há apenas um horário na mesma hora, usar ele
+          // Se há múltiplos, tentar match mais preciso primeiro
+          if (horariosNaMesmaHora.length === 1) {
+            const [horarioKey, resultados] = horariosNaMesmaHora[0]
+            horarioSelecionado = horarioKey
+            resultadosDoHorario = resultados
+          } else if (horariosNaMesmaHora.length > 1) {
+            // Múltiplos horários na mesma hora: tentar match mais preciso
+            // Buscar o horário mais próximo do horário da aposta
+            const horarioApostaMinutos = (() => {
+              const match = horarioNormalizado.match(/(\d{1,2})[h:](\d{2})?/)
+              if (match) {
+                const horas = parseInt(match[1], 10)
+                const minutos = match[2] ? parseInt(match[2], 10) : 0
+                return horas * 60 + minutos
+              }
+              return 0
+            })()
+            
+            if (horarioApostaMinutos > 0) {
+              let menorDiferenca = Infinity
+              for (let i = 0; i < horariosNaMesmaHora.length; i++) {
+                const [horarioKey, resultados] = horariosNaMesmaHora[i]
+                const horarioKeyLower = horarioKey.toLowerCase()
+                const match = horarioKeyLower.match(/(\d{1,2})[h:](\d{2})?/)
+                if (match) {
+                  const horas = parseInt(match[1], 10)
+                  const minutos = match[2] ? parseInt(match[2], 10) : 0
+                  const minutosTotais = horas * 60 + minutos
+                  
+                  const diferenca = Math.abs(horarioApostaMinutos - minutosTotais)
+                  if (diferenca < menorDiferenca) {
+                    menorDiferenca = diferenca
+                    horarioSelecionado = horarioKey
+                    resultadosDoHorario = resultados
+                  }
+                }
+              }
             }
           }
         }

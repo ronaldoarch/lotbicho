@@ -67,8 +67,8 @@ export const horariosReaisApuracao: HorarioRealApuracao[] = [
   { name: 'PT SP', time: '13:15', startTimeReal: '13:45', closeTimeReal: '14:00' }, // PT-SP 13:40 (nosso: 13:15) - De 13:45 às 14:00 (todos os dias)
   { name: 'PT SP (Band)', time: '15:15', startTimeReal: '15:35', closeTimeReal: '16:00' }, // BAND 15:30 (nosso: 15:15) - De 15:35 às 16:00 (todos os dias)
   { name: 'PT SP', time: '17:15', startTimeReal: '17:45', closeTimeReal: '18:00' }, // PT-SP 17:40 (nosso: 17:15) - De 17:45 às 18:00 (todos os dias)
+  { name: 'PT SP', time: '20:15', startTimeReal: '20:30', closeTimeReal: '21:00', diasSemSorteio: [0, 3, 5, 6] }, // PT-SP 20:40 (nosso: 20:15) - De 20:30 às 21:00 (apenas Segunda, Terça e Quinta)
   // Nota: Não temos extração com time 19:20, então não mapeamos
-  // Nota: Não temos extração com time 20:40, então não mapeamos
   // Nota: Não temos extração com time 18:20, então não mapeamos
 
   // LOTECE

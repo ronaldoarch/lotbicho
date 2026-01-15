@@ -57,5 +57,5 @@ export const extracoes: Extracao[] = [
   { id: 43, name: 'PT SP', estado: 'SP', realCloseTime: '13:11', closeTime: '13:15', time: '13:15', active: true, max: 10, days: 'Seg, Ter, Qua, Sex, Sáb, Dom' },
   { id: 44, name: 'PT SP (Band)', estado: 'SP', realCloseTime: '15:11', closeTime: '15:15', time: '15:15', active: true, max: 10, days: 'Seg, Ter, Qua, Sex, Sáb' },
   { id: 45, name: 'PT SP', estado: 'SP', realCloseTime: '17:11', closeTime: '17:15', time: '17:15', active: true, max: 10, days: 'Seg, Ter, Qua, Sex, Sáb' },
-  { id: 46, name: 'PT SP', estado: 'SP', realCloseTime: '20:11', closeTime: '20:15', time: '20:15', active: true, max: 10, days: 'Seg, Ter, Sex' },
+  { id: 46, name: 'PT SP', estado: 'SP', realCloseTime: '20:11', closeTime: '20:15', time: '20:15', active: true, max: 10, days: 'Seg, Ter, Qui' },
 ]

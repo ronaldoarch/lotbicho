@@ -837,10 +837,119 @@ export async function POST(request: NextRequest) {
           continue
         }
 
+        // IMPORTANTE: Agrupar resultados por horário para garantir que pegamos apenas os prêmios do horário correto
+        // O problema anterior era que estava misturando prêmios de diferentes horários
+        const resultadosPorHorario = new Map<string, ResultadoItem[]>()
+        
+        resultadosFiltrados.forEach((r) => {
+          if (r.position && r.milhar) {
+            const horarioKey = r.horario || r.drawTime || 'sem-horario'
+            if (!resultadosPorHorario.has(horarioKey)) {
+              resultadosPorHorario.set(horarioKey, [])
+            }
+            resultadosPorHorario.get(horarioKey)!.push(r)
+          }
+        })
+        
+        // Selecionar o horário que corresponde melhor à aposta
+        let horarioSelecionado: string | null = null
+        let resultadosDoHorario: ResultadoItem[] = []
+        
+        // Coletar todos os horários possíveis para match (incluindo horários reais de apuração)
+        const horariosParaMatch: string[] = []
+        if (horarioAposta && horarioAposta !== 'null') {
+          horariosParaMatch.push(horarioAposta.trim())
+        }
+        
+        // Adicionar horários reais de apuração se disponíveis
+        // Buscar extração novamente se necessário (pode estar fora do escopo anterior)
+        let extracaoParaHorarioNovo = null
+        if (aposta.loteria && /^\d+$/.test(aposta.loteria)) {
+          try {
+            const { extracoes } = await import('@/data/extracoes')
+            const extracaoId = parseInt(aposta.loteria)
+            extracaoParaHorarioNovo = extracoes.find((e: any) => e.id === extracaoId)
+          } catch (error) {
+            // Ignorar erro
+          }
+        }
+        
+        if (extracaoParaHorarioNovo && loteriaNome && aposta.horario && aposta.horario !== 'null') {
+          try {
+            const horarioExtracao = aposta.horario.trim()
+            const horarioReal = getHorarioRealApuracao(loteriaNome, horarioExtracao)
+            if (horarioReal) {
+              horariosParaMatch.push(horarioReal.startTimeReal)
+              horariosParaMatch.push(horarioReal.closeTimeReal)
+            }
+          } catch (error) {
+            // Ignorar erro
+          }
+        }
+        
+        // Tentar encontrar o melhor match entre os horários disponíveis
+        for (const horarioParaMatch of horariosParaMatch) {
+          const horarioNormalizado = horarioParaMatch.toLowerCase()
+          
+          // Buscar match exato primeiro
+          for (const [horarioKey, resultados] of resultadosPorHorario.entries()) {
+            const horarioKeyLower = horarioKey.toLowerCase()
+            
+            // Match exato
+            if (horarioKeyLower === horarioNormalizado) {
+              horarioSelecionado = horarioKey
+              resultadosDoHorario = resultados
+              break
+            }
+            
+            // Match por início (ex: "18:20" matcha "18:20:00")
+            if (horarioKeyLower.startsWith(horarioNormalizado) || horarioNormalizado.startsWith(horarioKeyLower)) {
+              horarioSelecionado = horarioKey
+              resultadosDoHorario = resultados
+              break
+            }
+          }
+          
+          if (resultadosDoHorario.length > 0) break
+        }
+        
+        // Se ainda não encontrou, tentar match por hora apenas
+        if (resultadosDoHorario.length === 0 && horariosParaMatch.length > 0) {
+          const horarioNormalizado = horariosParaMatch[0].toLowerCase()
+          const horaAposta = horarioNormalizado.split(':')[0] || horarioNormalizado.split('h')[0] || horarioNormalizado
+          
+          for (const [horarioKey, resultados] of resultadosPorHorario.entries()) {
+            const horarioKeyLower = horarioKey.toLowerCase()
+            const horaKey = horarioKeyLower.split(':')[0] || horarioKeyLower.split('h')[0] || horarioKeyLower
+            if (horaAposta === horaKey) {
+              horarioSelecionado = horarioKey
+              resultadosDoHorario = resultados
+              break
+            }
+          }
+        }
+        
+        // Se não encontrou por horário da aposta, usar o horário com mais resultados
+        if (resultadosDoHorario.length === 0) {
+          let maxResultados = 0
+          for (const [horarioKey, resultados] of resultadosPorHorario.entries()) {
+            if (resultados.length > maxResultados) {
+              maxResultados = resultados.length
+              horarioSelecionado = horarioKey
+              resultadosDoHorario = resultados
+            }
+          }
+        }
+        
+        console.log(`   🕐 Resultados agrupados por horário: ${resultadosPorHorario.size} horário(s) encontrado(s)`)
+        resultadosPorHorario.forEach((resultados, horario) => {
+          console.log(`      - Horário "${horario}": ${resultados.length} resultado(s)`)
+        })
+        console.log(`   ✅ Usando horário selecionado: "${horarioSelecionado}" com ${resultadosDoHorario.length} resultado(s)`)
+        
         // Converter resultados para formato do motor de regras
-        // Ordenar por posição (1º, 2º, 3º, etc.)
-        const resultadosOrdenados = resultadosFiltrados
-          .filter((r) => r.position && r.milhar)
+        // Ordenar por posição (1º, 2º, 3º, etc.) APENAS do horário selecionado
+        const resultadosOrdenados = resultadosDoHorario
           .sort((a, b) => {
             // Extrair número da posição (1º, 2º, etc.)
             const getPosNumber = (pos?: string): number => {
@@ -853,9 +962,14 @@ export async function POST(request: NextRequest) {
           .slice(0, 7) // Limitar a 7 prêmios
 
         if (resultadosOrdenados.length === 0) {
-          console.log(`Nenhum resultado válido encontrado para aposta ${aposta.id}`)
+          console.log(`   ❌ Nenhum resultado válido encontrado para aposta ${aposta.id} no horário "${horarioSelecionado}"`)
           continue
         }
+        
+        console.log(`   📊 Prêmios selecionados do horário "${horarioSelecionado}":`)
+        resultadosOrdenados.forEach((r, idx) => {
+          console.log(`      ${idx + 1}º: ${r.milhar} (posição: ${r.position})`)
+        })
 
         // Converter para lista de milhares (formato esperado pelo motor)
         const milhares = resultadosOrdenados.map((r) => {

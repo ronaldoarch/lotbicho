@@ -11,6 +11,7 @@ import { parsePosition } from '@/lib/position-parser'
 import { ANIMALS } from '@/data/animals'
 import { ResultadoItem } from '@/types/resultados'
 import { extracoes } from '@/data/extracoes'
+import { getHorarioRealApuracao, temSorteioNoDia } from '@/data/horarios-reais-apuracao'
 
 // Configurar timeout maior para operações longas
 export const maxDuration = 120 // 120 segundos (2 minutos) para processar muitas apostas
@@ -18,15 +19,22 @@ export const dynamic = 'force-dynamic'
 
 /**
  * Verifica se já passou o horário de apuração para uma extração
+ * 
+ * IMPORTANTE: Esta função usa os horários REAIS de apuração do bichocerto.com,
+ * não os horários internos do sistema. Os horários internos são mantidos para
+ * exibição e fechamento de apostas, mas a liquidação usa os horários reais.
+ * 
  * @param extracaoId ID da extração (loteria)
  * @param dataConcurso Data do concurso da aposta
  * @param horarioAposta Horário da aposta (opcional, para encontrar a extração correta)
+ * @param loteriaNome Nome da loteria (opcional, para buscar horário real)
  * @returns true se já passou o horário de apuração, false caso contrário
  */
 function jaPassouHorarioApuracao(
   extracaoId: number | string | null, 
   dataConcurso: Date | null,
-  horarioAposta: string | null = null
+  horarioAposta: string | null = null,
+  loteriaNome: string | null = null
 ): boolean {
   if (!extracaoId || !dataConcurso) {
     // Se não tem extração ou data, não pode verificar - permite liquidar (comportamento antigo)
@@ -63,17 +71,45 @@ function jaPassouHorarioApuracao(
     }
   }
   
-  if (!extracao || !extracao.closeTime) {
-    // Se não encontrou extração ou não tem closeTime, permite liquidar
-    console.log(`   ⚠️ Verificação de horário: extração não encontrada ou sem closeTime, permitindo liquidação`)
+  // IMPORTANTE: Tentar buscar horário REAL de apuração do bichocerto.com
+  // Usar nome da extração e horário para encontrar o horário real
+  const nomeExtracao = loteriaNome || extracao?.name || ''
+  const horarioExtracao = horarioAposta || extracao?.time || extracao?.closeTime || ''
+  
+  let horarioReal = null
+  let closeTimeParaUsar = extracao?.closeTime || ''
+  
+  if (nomeExtracao && horarioExtracao) {
+    horarioReal = getHorarioRealApuracao(nomeExtracao, horarioExtracao)
+    
+    if (horarioReal) {
+      // Usar horário real de apuração do bichocerto.com
+      closeTimeParaUsar = horarioReal.closeTimeReal
+      console.log(`   📅 Usando horário REAL de apuração: ${horarioReal.name} ${horarioReal.time} → ${horarioReal.closeTimeReal} (bichocerto.com)`)
+      
+      // Verificar se o dia da semana tem sorteio
+      const diaSemana = dataConcurso.getDay() // 0=Domingo, 1=Segunda, ..., 6=Sábado
+      if (!temSorteioNoDia(horarioReal, diaSemana)) {
+        const diasSemana = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
+        console.log(`   🚫 ${diasSemana[diaSemana]} não tem sorteio para ${horarioReal.name} ${horarioReal.time}`)
+        return false // Não pode liquidar se não tem sorteio neste dia
+      }
+    } else {
+      console.log(`   ⚠️ Horário real não encontrado para ${nomeExtracao} ${horarioExtracao}, usando horário interno: ${closeTimeParaUsar}`)
+    }
+  }
+  
+  if (!closeTimeParaUsar) {
+    // Se não encontrou horário real nem interno, permite liquidar
+    console.log(`   ⚠️ Verificação de horário: sem closeTime disponível, permitindo liquidação`)
     return true
   }
 
   // Parsear horário de apuração (formato HH:MM)
-  const [horas, minutos] = extracao.closeTime.split(':').map(Number)
+  const [horas, minutos] = closeTimeParaUsar.split(':').map(Number)
   
   if (isNaN(horas) || isNaN(minutos)) {
-    console.log(`   ⚠️ Verificação de horário: closeTime inválido "${extracao.closeTime}", permitindo liquidação`)
+    console.log(`   ⚠️ Verificação de horário: closeTime inválido "${closeTimeParaUsar}", permitindo liquidação`)
     return true
   }
   
@@ -120,11 +156,12 @@ function jaPassouHorarioApuracao(
     
     // Formatar horários para log (horário de Brasília)
     const horaApuracao = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}`
-    const horaAtual = `${agora.getHours().toString().padStart(2, '0')}:${agora.getMinutes().toString().padStart(2, '0')}:${agora.getSeconds().toString().padStart(2, '0')}`
+    const horaAtualStr = `${agora.getHours().toString().padStart(2, '0')}:${agora.getMinutes().toString().padStart(2, '0')}:${agora.getSeconds().toString().padStart(2, '0')}`
     
-    console.log(`   ⏰ Verificação de horário: ${extracao.name} (ID ${extracao.id}) - closeTime: ${extracao.closeTime}`)
+    const fonteHorario = horarioReal ? '(bichocerto.com)' : '(interno)'
+    console.log(`   ⏰ Verificação de horário: ${extracao?.name || nomeExtracao} (ID ${extracaoId}) - closeTime: ${closeTimeParaUsar} ${fonteHorario}`)
     console.log(`      Data apuração: ${dataConcursoSemHora.toLocaleDateString('pt-BR')} ${horaApuracao} (Brasília)`)
-    console.log(`      Agora: ${agora.toLocaleDateString('pt-BR')} ${horaAtual} (Brasília)`)
+    console.log(`      Agora: ${agora.toLocaleDateString('pt-BR')} ${horaAtualStr} (Brasília)`)
     console.log(`      ${jaPassou ? '✅ Já passou' : '⏸️  Ainda não passou'} o horário de apuração`)
     return jaPassou
   } else if (dataConcursoSemHora.getTime() < hoje.getTime()) {
@@ -684,7 +721,8 @@ export async function POST(request: NextRequest) {
         // Verificar se já passou o horário de apuração
         const extracaoId = aposta.loteria ? Number(aposta.loteria) : null
         const horarioAposta = aposta.horario && aposta.horario !== 'null' ? aposta.horario : null
-        const podeLiquidar = jaPassouHorarioApuracao(extracaoId, aposta.dataConcurso, horarioAposta)
+        const loteriaNome = aposta.loteria || null
+        const podeLiquidar = jaPassouHorarioApuracao(extracaoId, aposta.dataConcurso, horarioAposta, loteriaNome)
         
         if (!podeLiquidar) {
           // Buscar extração correta para mostrar no log

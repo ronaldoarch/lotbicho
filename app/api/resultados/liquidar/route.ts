@@ -721,8 +721,8 @@ export async function POST(request: NextRequest) {
         // Verificar se já passou o horário de apuração
         const extracaoId = aposta.loteria ? Number(aposta.loteria) : null
         const horarioAposta = aposta.horario && aposta.horario !== 'null' ? aposta.horario : null
-        const loteriaNome = aposta.loteria || null
-        const podeLiquidar = jaPassouHorarioApuracao(extracaoId, aposta.dataConcurso, horarioAposta, loteriaNome)
+        // Usar loteriaNome já declarado acima (linha 435), não redeclarar
+        const podeLiquidar = jaPassouHorarioApuracao(extracaoId, aposta.dataConcurso, horarioAposta, loteriaNome || null)
         
         if (!podeLiquidar) {
           // Buscar extração correta para mostrar no log

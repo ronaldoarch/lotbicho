@@ -43,7 +43,7 @@ export const extracoes: Extracao[] = [
   { id: 29, name: 'PT BAHIA', estado: 'BA', realCloseTime: '15:03', closeTime: '15:20', time: '15:20', active: true, max: 10, days: 'Seg, Ter, Qua, Sex, Sáb, Dom' },
   { id: 30, name: 'PT BAHIA', estado: 'BA', realCloseTime: '18:43', closeTime: '19:00', time: '19:00', active: true, max: 10, days: 'Seg, Ter, Sex' },
   { id: 31, name: 'PT BAHIA', estado: 'BA', realCloseTime: '21:03', closeTime: '21:20', time: '21:20', active: true, max: 10, days: 'Seg, Ter, Qua, Sex, Sáb' },
-  { id: 32, name: 'FEDERAL', estado: 'BR', realCloseTime: '19:50', closeTime: '20:00', time: '20:00', active: true, max: 10, days: 'Sábado' },
+  { id: 32, name: 'FEDERAL', estado: 'BR', realCloseTime: '19:50', closeTime: '20:00', time: '20:00', active: true, max: 10, days: 'Qua, Sáb' },
   { id: 33, name: '—', estado: 'BR', realCloseTime: '', closeTime: '10:50', time: '10:50', active: false, max: 10, days: '—' },
   { id: 34, name: '—', estado: 'BR', realCloseTime: '', closeTime: '18:50', time: '18:50', active: false, max: 10, days: '—' },
   { id: 35, name: 'LOOK', estado: 'GO', realCloseTime: '09:05', closeTime: '09:20', time: '09:20', active: true, max: 10, days: 'Todos' },

@@ -32,6 +32,48 @@ interface LocationSelectionProps {
 
 const CLOSE_THRESHOLD_MINUTES = 5
 
+/**
+ * Verifica se uma extração pode ser usada hoje baseado no campo days
+ * @param days String com dias da semana (ex: "Qua, Sáb", "Todos", "Seg, Ter, Qua, Sex, Sáb")
+ * @returns true se pode usar hoje, false caso contrário
+ */
+function podeUsarHoje(days: string): boolean {
+  if (!days || days === '—' || days === 'Todos') return true
+  
+  const hoje = new Date()
+  const diaSemana = hoje.getDay() // 0=Domingo, 1=Segunda, ..., 6=Sábado
+  
+  const diasMap: Record<string, number> = {
+    'dom': 0,
+    'domingo': 0,
+    'seg': 1,
+    'segunda': 1,
+    'segunda-feira': 1,
+    'ter': 2,
+    'terça': 2,
+    'terça-feira': 2,
+    'qua': 3,
+    'quarta': 3,
+    'quarta-feira': 3,
+    'qui': 4,
+    'quinta': 4,
+    'quinta-feira': 4,
+    'sex': 5,
+    'sexta': 5,
+    'sexta-feira': 5,
+    'sáb': 6,
+    'sábado': 6,
+  }
+  
+  const diasLower = days.toLowerCase().trim()
+  const diasArray = diasLower.split(/[,;]/).map(d => d.trim())
+  
+  return diasArray.some(dia => {
+    const diaNum = diasMap[dia]
+    return diaNum !== undefined && diaNum === diaSemana
+  })
+}
+
 export default function LocationSelection({
   instant,
   location,
@@ -166,14 +208,16 @@ export default function LocationSelection({
                     const isSelected = location === ext.id.toString()
                     const isClosingSoon = ext.minutesToClose <= CLOSE_THRESHOLD_MINUTES && ext.minutesToClose > 0
                     const closed = ext.minutesToClose <= 0
+                    const naoTemSorteioHoje = !podeUsarHoje(ext.days)
+                    const disabled = closed || naoTemSorteioHoje
                     return (
                       <button
                         key={ext.id}
-                        onClick={() => !closed && onLocationChange(ext.id.toString())}
-                        disabled={closed}
+                        onClick={() => !disabled && onLocationChange(ext.id.toString())}
+                        disabled={disabled}
                         className={`flex flex-col items-start rounded-lg border-2 p-4 transition-all ${
                           isSelected ? 'border-blue bg-blue/10 shadow-lg' : 'border-gray-200 bg-white hover:border-blue/50'
-                        } ${closed ? 'opacity-50 cursor-not-allowed' : 'hover:scale-[1.01]'}`}
+                        } ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:scale-[1.01]'}`}
                       >
                         <div className="flex w-full items-center justify-between">
                           <span className="font-semibold text-gray-950">{ext.name}</span>
@@ -189,6 +233,10 @@ export default function LocationSelection({
                         {closed ? (
                           <span className="mt-2 inline-flex w-fit rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-600">
                             Encerrada
+                          </span>
+                        ) : naoTemSorteioHoje ? (
+                          <span className="mt-2 inline-flex w-fit rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-700">
+                            Sem sorteio hoje
                           </span>
                         ) : isClosingSoon ? (
                           <span className="mt-2 inline-flex w-fit rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-700">

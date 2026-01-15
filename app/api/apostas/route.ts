@@ -11,6 +11,50 @@ import {
 } from '@/lib/bet-rules-engine'
 import { parsePosition } from '@/lib/position-parser'
 import { ANIMALS } from '@/data/animals'
+import { extracoes } from '@/data/extracoes'
+import { getHorarioRealApuracao, temSorteioNoDia } from '@/data/horarios-reais-apuracao'
+
+/**
+ * Verifica se uma extração pode ser usada hoje baseado no campo days
+ * @param days String com dias da semana (ex: "Qua, Sáb", "Todos", "Seg, Ter, Qua, Sex, Sáb")
+ * @returns true se pode usar hoje, false caso contrário
+ */
+function podeUsarHoje(days: string): boolean {
+  if (!days || days === '—' || days === 'Todos') return true
+  
+  const hoje = new Date()
+  const diaSemana = hoje.getDay() // 0=Domingo, 1=Segunda, ..., 6=Sábado
+  
+  const diasMap: Record<string, number> = {
+    'dom': 0,
+    'domingo': 0,
+    'seg': 1,
+    'segunda': 1,
+    'segunda-feira': 1,
+    'ter': 2,
+    'terça': 2,
+    'terça-feira': 2,
+    'qua': 3,
+    'quarta': 3,
+    'quarta-feira': 3,
+    'qui': 4,
+    'quinta': 4,
+    'quinta-feira': 4,
+    'sex': 5,
+    'sexta': 5,
+    'sexta-feira': 5,
+    'sáb': 6,
+    'sábado': 6,
+  }
+  
+  const diasLower = days.toLowerCase().trim()
+  const diasArray = diasLower.split(/[,;]/).map(d => d.trim())
+  
+  return diasArray.some(dia => {
+    const diaNum = diasMap[dia]
+    return diaNum !== undefined && diaNum === diaSemana
+  })
+}
 
 export async function GET() {
   const session = cookies().get('lotbicho_session')?.value
@@ -69,6 +113,44 @@ export async function POST(request: Request) {
     const valorDigitado = Number(valor)
     const useBonusFlag = Boolean(useBonus)
     const isInstant = detalhes && typeof detalhes === 'object' && 'betData' in detalhes && (detalhes as any).betData?.instant === true
+
+    // Validar se a extração pode ser usada hoje (dias de sorteio)
+    if (loteria && !isInstant) {
+      // Buscar extração
+      const extracaoId = typeof loteria === 'string' && /^\d+$/.test(loteria) ? parseInt(loteria) : null
+      if (extracaoId) {
+        const extracao = extracoes.find(e => e.id === extracaoId)
+        if (extracao) {
+          // Verificar campo days primeiro
+          if (!podeUsarHoje(extracao.days)) {
+            const hoje = new Date()
+            const diasSemana = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
+            const diaAtual = diasSemana[hoje.getDay()]
+            return NextResponse.json(
+              { error: `${extracao.name} não tem sorteio nas ${diaAtual}s. Dias de sorteio: ${extracao.days}` },
+              { status: 400 }
+            )
+          }
+          
+          // Verificar também usando horários reais de apuração (validação adicional)
+          if (horario && horario !== 'null') {
+            const horarioReal = getHorarioRealApuracao(extracao.name, horario)
+            if (horarioReal) {
+              const dataConcursoParaValidar = dataConcurso ? new Date(dataConcurso) : new Date()
+              const diaSemanaNum = dataConcursoParaValidar.getDay()
+              if (!temSorteioNoDia(horarioReal, diaSemanaNum)) {
+                const diasSemana = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
+                const diaAtual = diasSemana[diaSemanaNum]
+                return NextResponse.json(
+                  { error: `${extracao.name} não tem sorteio nas ${diaAtual}s para o horário ${horario}` },
+                  { status: 400 }
+                )
+              }
+            }
+          }
+        }
+      }
+    }
 
     // Calcular valor total da aposta baseado na divisão
     let valorTotalAposta = valorDigitado

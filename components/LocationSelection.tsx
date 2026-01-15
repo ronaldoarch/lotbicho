@@ -118,7 +118,9 @@ export default function LocationSelection({
       .sort((a, b) => (a.closeDate?.getTime() || 0) - (b.closeDate?.getTime() || 0))
   }, [extracoes, now])
 
-  const available = normalized.filter((e) => e.minutesToClose > CLOSE_THRESHOLD_MINUTES)
+  const available = normalized.filter((e) => 
+    e.minutesToClose > CLOSE_THRESHOLD_MINUTES && podeUsarHoje(e.days)
+  )
 
   const groupedByEstado = useMemo(() => {
     const groups: Record<string, ExtracaoWithMeta[]> = {}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { BetData } from '@/types/bet'
 import { ANIMALS } from '@/data/animals'
 import { MODALITIES } from '@/data/modalities'
@@ -41,6 +42,7 @@ const INITIAL_BET_DATA: BetData = {
 }
 
 export default function BetFlow() {
+  const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
   const [betData, setBetData] = useState<BetData>(INITIAL_BET_DATA)
   const [showSpecialModal, setShowSpecialModal] = useState(false)
@@ -51,6 +53,7 @@ export default function BetFlow() {
   const [userSaldo, setUserSaldo] = useState<number>(0)
   const [showAlert, setShowAlert] = useState(false)
   const [alertMessage, setAlertMessage] = useState({ title: '', message: '' })
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const MAX_PALPITES = 10
 
@@ -282,6 +285,11 @@ export default function BetFlow() {
   }
 
   const handleConfirm = () => {
+    // Prevenir múltiplas submissões
+    if (isSubmitting) {
+      return
+    }
+
     // Validar saldo antes de confirmar
     if (!validarSaldo()) {
       const valorTotal = calcularValorTotalAposta()
@@ -295,6 +303,8 @@ export default function BetFlow() {
       setShowAlert(true)
       return
     }
+
+    setIsSubmitting(true)
 
     const modalityName = betData.modalityName || MODALITIES.find((m) => String(m.id) === betData.modality)?.name || 'Modalidade'
     
@@ -352,8 +362,10 @@ export default function BetFlow() {
             premioTotal: data.aposta.detalhes.premioTotal || 0,
           })
           setShowInstantResult(true)
+          setIsSubmitting(false)
         } else {
-          alert('Aposta registrada com sucesso!')
+          // Redirecionar para minhas apostas após sucesso
+          router.push('/minhas-apostas')
         }
       })
       .catch((err) => {
@@ -363,6 +375,7 @@ export default function BetFlow() {
         } else {
           alert(msg)
         }
+        setIsSubmitting(false)
       })
   }
 
@@ -488,7 +501,8 @@ export default function BetFlow() {
             betData={betData} 
             saldoDisponivel={isAuthenticated ? userSaldo + (betData.useBonus ? betData.bonusAmount : 0) : undefined}
             onConfirm={handleConfirm} 
-            onBack={handleBack} 
+            onBack={handleBack}
+            isSubmitting={isSubmitting}
           />
         )
 
@@ -551,6 +565,9 @@ export default function BetFlow() {
         onClose={() => {
           setShowInstantResult(false)
           setInstantResult(null)
+          setIsSubmitting(false)
+          // Redirecionar para minhas apostas após fechar o modal
+          router.push('/minhas-apostas')
         }}
         resultado={instantResult}
       />

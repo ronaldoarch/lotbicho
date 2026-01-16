@@ -20,9 +20,10 @@ interface BetConfirmationProps {
   saldoDisponivel?: number
   onConfirm: () => void
   onBack: () => void
+  isSubmitting?: boolean
 }
 
-export default function BetConfirmation({ betData, saldoDisponivel, onConfirm, onBack }: BetConfirmationProps) {
+export default function BetConfirmation({ betData, saldoDisponivel, onConfirm, onBack, isSubmitting = false }: BetConfirmationProps) {
   const selectedGroups = betData.animalBets || []
   const numberBets = betData.numberBets || []
   const flatSelectedIds = selectedGroups.flat()
@@ -331,10 +332,14 @@ export default function BetConfirmation({ betData, saldoDisponivel, onConfirm, o
         </button>
         <button
           onClick={onConfirm}
-          disabled={saldoDisponivel !== undefined && total > saldoDisponivel}
+          disabled={isSubmitting || (saldoDisponivel !== undefined && total > saldoDisponivel)}
           className="flex-1 rounded-lg bg-yellow px-6 py-3 font-bold text-blue-950 hover:bg-yellow/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400"
         >
-          {saldoDisponivel !== undefined && total > saldoDisponivel ? 'Saldo Insuficiente' : 'Confirmar Aposta'}
+          {isSubmitting 
+            ? 'Processando...' 
+            : saldoDisponivel !== undefined && total > saldoDisponivel 
+              ? 'Saldo Insuficiente' 
+              : 'Confirmar Aposta'}
         </button>
       </div>
     </div>

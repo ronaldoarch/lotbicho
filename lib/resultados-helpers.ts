@@ -137,20 +137,35 @@ export function groupResultsByDrawTime(
     const locationMatch =
       filterUf ? itemUf === filterUf : !locationLc || (item.location || '').toLowerCase().includes(locationLc)
     const dateMatch = matchesDate(item.date, selectedDate)
+    
+    // Debug: verificar se está filtrando corretamente por estado
+    if (filterUf && itemUf !== filterUf) {
+      // Item não corresponde ao filtro de estado
+      return
+    }
+    
     if (!locationMatch || !dateMatch) return
 
-    const key = item.drawTime?.trim() || 'Resultado'
+    // IMPORTANTE: Incluir nome da loteria na chave para evitar misturar tabelas diferentes
+    // Exemplo: LOTEP (PB) e LOTECE (CE) devem ser agrupados separadamente mesmo com mesmo horário
+    const loteriaKey = item.loteria || ''
+    const drawTimeKey = item.drawTime?.trim() || 'Resultado'
+    const key = `${loteriaKey}|${drawTimeKey}`
     const list = groups.get(key) ?? []
     list.push(item)
     groups.set(key, list)
   })
 
   return Array.from(groups.entries())
-    .map(([drawTime, rows]) => ({
-      drawTime,
-      rows: sortByPosition(rows),
-      dateLabel: formatDateLabel(rows[0]?.date || selectedDate),
-      locationLabel: location,
-    }))
+    .map(([key, rows]) => {
+      // Extrair drawTime da chave (formato: "loteria|drawTime")
+      const drawTime = key.includes('|') ? key.split('|')[1] : key
+      return {
+        drawTime,
+        rows: sortByPosition(rows),
+        dateLabel: formatDateLabel(rows[0]?.date || selectedDate),
+        locationLabel: location,
+      }
+    })
     .sort((a, b) => extractTimeValue(a.drawTime) - extractTimeValue(b.drawTime))
 }

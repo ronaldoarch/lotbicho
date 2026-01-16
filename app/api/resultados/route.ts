@@ -158,7 +158,14 @@ const LOTERIA_UF_MAP: Record<string, string> = {
 
 const EXTRACAO_UF_MAP: Record<string, string> = {
   lotece: 'CE',
+  'pt paraiba/lotep': 'PB', // IMPORTANTE: Verificar antes de "lotep" para evitar confusão
+  'pt paraiba': 'PB',
+  'pt paraíba': 'PB',
+  'pt-pb': 'PB',
   lotep: 'PB',
+  'pt ceara': 'CE',
+  'pt ceará': 'CE',
+  'pt-ce': 'CE',
   look: 'GO',
   'para todos': 'BR',
   'pt rio': 'RJ',
@@ -237,10 +244,24 @@ function buildUrl(uf?: string) {
 function inferUfFromName(name?: string | null) {
   if (!name) return undefined
   const key = normalizeText(name)
+  
+  // IMPORTANTE: Verificar EXTRACAO_UF_MAP primeiro para evitar confusão entre LOTEP e LOTECE
+  // Exemplo: "PT Paraiba/Lotep" deve ser PB, não CE
+  if (EXTRACAO_UF_MAP[key]) {
+    return EXTRACAO_UF_MAP[key]
+  }
+  
+  // Verificar se contém palavras-chave específicas (para casos como "PT Paraiba/Lotep")
+  if (key.includes('lotep') || key.includes('paraiba') || key.includes('paraíba')) {
+    return 'PB'
+  }
+  if (key.includes('lotece') || key.includes('ceara') || key.includes('ceará')) {
+    return 'CE'
+  }
+  
   return (
     UF_ALIASES[key] ||
     LOTERIA_UF_MAP[key] ||
-    EXTRACAO_UF_MAP[key] ||
     (key.length === 2 ? key.toUpperCase() : undefined)
   )
 }

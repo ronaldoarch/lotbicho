@@ -771,15 +771,6 @@ export async function POST(request: NextRequest) {
           const [anoAposta, mesAposta, diaAposta] = dataAposta.split('-')
           const dataApostaFormatada = `${diaAposta}/${mesAposta}/${anoAposta}`
           
-          // IMPORTANTE: Também buscar resultados do dia seguinte
-          // Isso é necessário porque uma aposta feita no dia 15 pode ter resultado no dia 16
-          const dataApostaObj = new Date(dataAposta)
-          const dataSeguinteObj = new Date(dataApostaObj)
-          dataSeguinteObj.setDate(dataSeguinteObj.getDate() + 1)
-          const dataSeguinte = dataSeguinteObj.toISOString().split('T')[0]
-          const [anoSeg, mesSeg, diaSeg] = dataSeguinte.split('-')
-          const dataSeguinteFormatada = `${diaSeg}/${mesSeg}/${anoSeg}`
-          
           const antes = resultadosFiltrados.length
           resultadosFiltrados = resultadosFiltrados.filter((r) => {
             if (!r.date && !r.dataExtracao) return false
@@ -789,17 +780,17 @@ export async function POST(request: NextRequest) {
             // Tentar múltiplos formatos de comparação
             // Formato ISO: 2026-01-14
             const dataResultadoISO = dataResultado.split('T')[0]
-            if (dataResultadoISO === dataAposta || dataResultadoISO === dataSeguinte) return true
+            if (dataResultadoISO === dataAposta) return true
             
             // Formato brasileiro: 14/01/2026
-            if (dataResultado === dataApostaFormatada || dataResultado === dataSeguinteFormatada) return true
+            if (dataResultado === dataApostaFormatada) return true
             
             // Comparação parcial (apenas dia/mês/ano)
             const matchBR = dataResultado.match(/(\d{2})\/(\d{2})\/(\d{4})/)
             if (matchBR) {
               const [_, dia, mes, ano] = matchBR
               const dataResultadoISO = `${ano}-${mes}-${dia}`
-              if (dataResultadoISO === dataAposta || dataResultadoISO === dataSeguinte) return true
+              if (dataResultadoISO === dataAposta) return true
             }
             
             // Comparação reversa (ano-mês-dia vs dia/mês/ano)
@@ -807,18 +798,18 @@ export async function POST(request: NextRequest) {
             if (matchISO) {
               const [_, ano, mes, dia] = matchISO
               const dataResultadoFormatada = `${dia}/${mes}/${ano}`
-              if (dataResultadoFormatada === dataApostaFormatada || dataResultadoFormatada === dataSeguinteFormatada) return true
+              if (dataResultadoFormatada === dataApostaFormatada) return true
             }
             
             return false
           })
-          console.log(`   - Após filtro de data "${dataAposta}" (ou "${dataApostaFormatada}") e dia seguinte "${dataSeguinte}": ${resultadosFiltrados.length} resultados (antes: ${antes})`)
+          console.log(`   - Após filtro de data "${dataAposta}" (ou "${dataApostaFormatada}"): ${resultadosFiltrados.length} resultados (antes: ${antes})`)
           
           // Debug: mostrar exemplos de datas dos resultados
           if (resultadosFiltrados.length === 0 && antes > 0) {
             const exemplosDatas = Array.from(new Set(resultados.slice(0, 10).map(r => r.date || r.dataExtracao).filter(Boolean)))
             console.log(`   - Exemplos de datas disponíveis: ${exemplosDatas.join(', ')}`)
-            console.log(`   - ⚠️ Nenhum resultado encontrado para data da aposta (${dataAposta}) nem dia seguinte (${dataSeguinte})`)
+            console.log(`   - ⚠️ Nenhum resultado encontrado para data da aposta (${dataAposta})`)
           }
         } else if (!aposta.dataConcurso) {
           // Se não tem data na aposta, não filtrar por data (usar todos os resultados disponíveis)
@@ -961,6 +952,14 @@ export async function POST(request: NextRequest) {
         })
         console.log(`   ✅ Usando horário selecionado: "${horarioSelecionado}" com ${resultadosDoHorario.length} resultado(s)`)
         
+        // VALIDAÇÃO CRÍTICA: Verificar se o resultado está completo antes de liquidar
+        // O resultado deve ter pelo menos 7 posições (1º ao 7º) para ser considerado válido
+        if (resultadosDoHorario.length < 7) {
+          console.log(`   ⚠️ Resultado incompleto: apenas ${resultadosDoHorario.length} posição(ões) encontrada(s)`)
+          console.log(`   ⏸️  Aguardando resultado completo (necessário: 7 posições) para aposta ${aposta.id}`)
+          continue
+        }
+        
         // Converter resultados para formato do motor de regras
         // Ordenar por posição (1º, 2º, 3º, etc.) APENAS do horário selecionado
         const resultadosOrdenados = resultadosDoHorario
@@ -978,6 +977,55 @@ export async function POST(request: NextRequest) {
         if (resultadosOrdenados.length === 0) {
           console.log(`   ❌ Nenhum resultado válido encontrado para aposta ${aposta.id} no horário "${horarioSelecionado}"`)
           continue
+        }
+        
+        // VALIDAÇÃO ADICIONAL: Verificar se temos todas as posições de 1º a 7º
+        const posicoesEncontradas = new Set<number>()
+        resultadosOrdenados.forEach((r) => {
+          const match = r.position?.match(/(\d+)/)
+          if (match) {
+            posicoesEncontradas.add(parseInt(match[1], 10))
+          }
+        })
+        
+        // Verificar se temos pelo menos as posições de 1º a 7º
+        const posicoesNecessarias = [1, 2, 3, 4, 5, 6, 7]
+        const temTodasPosicoes = posicoesNecessarias.every(pos => posicoesEncontradas.has(pos))
+        
+        if (!temTodasPosicoes) {
+          const posicoesFaltando = posicoesNecessarias.filter(pos => !posicoesEncontradas.has(pos))
+          console.log(`   ⚠️ Resultado incompleto: faltam posições ${posicoesFaltando.join(', ')}`)
+          console.log(`   ⏸️  Aguardando resultado completo para aposta ${aposta.id}`)
+          continue
+        }
+        
+        // VALIDAÇÃO FINAL: Verificar se o resultado corresponde exatamente à extração/horário/data
+        // Verificar se a loteria do resultado corresponde à loteria da aposta
+        if (loteriaNome && resultadosDoHorario.length > 0) {
+          const loteriaResultado = resultadosDoHorario[0].loteria?.toLowerCase().trim() || ''
+          const loteriaApostaNormalizada = loteriaNome.toLowerCase().trim()
+          
+          // Verificar match flexível mas rigoroso
+          const normalizar = (str: string) => str.toLowerCase().trim().replace(/\s+/g, ' ').replace(/\//g, '/')
+          const loteriaResultadoNormalizada = normalizar(loteriaResultado)
+          const loteriaApostaNormalizadaFinal = normalizar(loteriaApostaNormalizada)
+          
+          // Verificar se há correspondência (exata ou por palavras-chave principais)
+          const palavrasLoteriaResultado = loteriaResultadoNormalizada.split(/\s+|-|\//).filter(p => p.length > 2)
+          const palavrasLoteriaAposta = loteriaApostaNormalizadaFinal.split(/\s+|-|\//).filter(p => p.length > 2)
+          
+          const palavrasComuns = palavrasLoteriaResultado.filter(p => 
+            palavrasLoteriaAposta.some(pa => pa.includes(p) || p.includes(pa))
+          )
+          
+          // Se não há correspondência suficiente, não liquidar
+          if (palavrasComuns.length === 0 && loteriaResultadoNormalizada !== loteriaApostaNormalizadaFinal) {
+            console.log(`   ⚠️ Resultado não corresponde à extração da aposta`)
+            console.log(`      Loteria da aposta: "${loteriaNome}"`)
+            console.log(`      Loteria do resultado: "${resultadosDoHorario[0].loteria}"`)
+            console.log(`   ⏸️  Aguardando resultado correto para aposta ${aposta.id}`)
+            continue
+          }
         }
         
         console.log(`   📊 Prêmios selecionados do horário "${horarioSelecionado}":`)

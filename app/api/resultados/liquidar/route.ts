@@ -517,6 +517,8 @@ export async function POST(request: NextRequest) {
                     'look goiás',  // Formato exato da API
                     'look goias',
                     'look-go',  // Formato que aparece na API (com hífen)
+                    'look goiás',  // Com acento
+                    'look goias',  // Sem acento
                     'look'  // Nome simples
                   )
                 }
@@ -624,11 +626,21 @@ export async function POST(request: NextRequest) {
               }
               
               // Match por palavra-chave única se for significativa (ex: "bandeirantes", "lotep", "lotece")
-              const palavrasSignificativas = ['bandeirantes', 'lotep', 'lotece', 'look', 'nacional', 'federal', 'maluquinha', 'maluca']
-              const temPalavraSignificativa = palavrasSignificativas.some(palavra => 
-                nomeLower.includes(palavra) && rLoteriaNormalizada.includes(palavra)
-              )
+              const palavrasSignificativas = ['bandeirantes', 'lotep', 'lotece', 'look', 'nacional', 'federal', 'maluquinha', 'maluca', 'rio', 'janeiro', 'bahia', 'paraiba', 'paraíba', 'ceara', 'ceará', 'goias', 'goiás', 'sp', 'são paulo', 'sao paulo']
+              
+              // Verificar se ambas as strings contêm a mesma palavra-chave significativa
+              const temPalavraSignificativa = palavrasSignificativas.some(palavra => {
+                const temNoNome = nomeLower.includes(palavra)
+                const temNaLoteria = rLoteriaNormalizada.includes(palavra)
+                return temNoNome && temNaLoteria
+              })
               if (temPalavraSignificativa) return true
+              
+              // Match especial para LOOK: "look" matcha "look goiás"
+              if (nomeLower === 'look' && rLoteriaNormalizada.includes('look')) return true
+              
+              // Match especial para FEDERAL: pode aparecer como "Loteria Federal" ou apenas "Federal"
+              if (nomeLower === 'federal' && (rLoteriaNormalizada.includes('federal') || rLoteriaNormalizada.includes('loteria federal'))) return true
               
               return false
             })
@@ -759,6 +771,15 @@ export async function POST(request: NextRequest) {
           const [anoAposta, mesAposta, diaAposta] = dataAposta.split('-')
           const dataApostaFormatada = `${diaAposta}/${mesAposta}/${anoAposta}`
           
+          // IMPORTANTE: Também buscar resultados do dia seguinte
+          // Isso é necessário porque uma aposta feita no dia 15 pode ter resultado no dia 16
+          const dataApostaObj = new Date(dataAposta)
+          const dataSeguinteObj = new Date(dataApostaObj)
+          dataSeguinteObj.setDate(dataSeguinteObj.getDate() + 1)
+          const dataSeguinte = dataSeguinteObj.toISOString().split('T')[0]
+          const [anoSeg, mesSeg, diaSeg] = dataSeguinte.split('-')
+          const dataSeguinteFormatada = `${diaSeg}/${mesSeg}/${anoSeg}`
+          
           const antes = resultadosFiltrados.length
           resultadosFiltrados = resultadosFiltrados.filter((r) => {
             if (!r.date && !r.dataExtracao) return false
@@ -768,28 +789,30 @@ export async function POST(request: NextRequest) {
             // Tentar múltiplos formatos de comparação
             // Formato ISO: 2026-01-14
             const dataResultadoISO = dataResultado.split('T')[0]
-            if (dataResultadoISO === dataAposta) return true
+            if (dataResultadoISO === dataAposta || dataResultadoISO === dataSeguinte) return true
             
             // Formato brasileiro: 14/01/2026
-            if (dataResultado === dataApostaFormatada) return true
+            if (dataResultado === dataApostaFormatada || dataResultado === dataSeguinteFormatada) return true
             
             // Comparação parcial (apenas dia/mês/ano)
             const matchBR = dataResultado.match(/(\d{2})\/(\d{2})\/(\d{4})/)
             if (matchBR) {
               const [_, dia, mes, ano] = matchBR
-              if (`${ano}-${mes}-${dia}` === dataAposta) return true
+              const dataResultadoISO = `${ano}-${mes}-${dia}`
+              if (dataResultadoISO === dataAposta || dataResultadoISO === dataSeguinte) return true
             }
             
             // Comparação reversa (ano-mês-dia vs dia/mês/ano)
             const matchISO = dataResultado.match(/(\d{4})-(\d{2})-(\d{2})/)
             if (matchISO) {
               const [_, ano, mes, dia] = matchISO
-              if (`${dia}/${mes}/${ano}` === dataApostaFormatada) return true
+              const dataResultadoFormatada = `${dia}/${mes}/${ano}`
+              if (dataResultadoFormatada === dataApostaFormatada || dataResultadoFormatada === dataSeguinteFormatada) return true
             }
             
             return false
           })
-          console.log(`   - Após filtro de data "${dataAposta}" (ou "${dataApostaFormatada}"): ${resultadosFiltrados.length} resultados (antes: ${antes})`)
+          console.log(`   - Após filtro de data "${dataAposta}" (ou "${dataApostaFormatada}") e dia seguinte "${dataSeguinte}": ${resultadosFiltrados.length} resultados (antes: ${antes})`)
           
           // Debug: mostrar exemplos de datas dos resultados
           if (resultadosFiltrados.length === 0 && antes > 0) {

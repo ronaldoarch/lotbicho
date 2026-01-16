@@ -816,9 +816,13 @@ export async function POST(request: NextRequest) {
           
           // Debug: mostrar exemplos de datas dos resultados
           if (resultadosFiltrados.length === 0 && antes > 0) {
-            const exemplosDatas = Array.from(new Set(resultados.slice(0, 5).map(r => r.date || r.dataExtracao).filter(Boolean)))
+            const exemplosDatas = Array.from(new Set(resultados.slice(0, 10).map(r => r.date || r.dataExtracao).filter(Boolean)))
             console.log(`   - Exemplos de datas disponíveis: ${exemplosDatas.join(', ')}`)
+            console.log(`   - ⚠️ Nenhum resultado encontrado para data da aposta (${dataAposta}) nem dia seguinte (${dataSeguinte})`)
           }
+        } else if (!aposta.dataConcurso) {
+          // Se não tem data na aposta, não filtrar por data (usar todos os resultados disponíveis)
+          console.log(`   - Pulando filtro de data (aposta sem data definida)`)
         }
 
         console.log(`\n🔍 Processando aposta ${aposta.id}:`)

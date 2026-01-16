@@ -332,11 +332,17 @@ export async function GET(req: NextRequest) {
   const locationFilter = searchParams.get('location')
   const uf = resolveUF(locationFilter)
 
-  const fetchWithTimeout = async (url: string, timeoutMs = 15000) => {
+  const fetchWithTimeout = async (url: string, timeoutMs = 30000) => {
     const controller = new AbortController()
     const id = setTimeout(() => controller.abort(), timeoutMs)
     try {
       return await fetch(url, { cache: 'no-store', signal: controller.signal })
+    } catch (error) {
+      // Se for erro de aborto (timeout), relançar com mensagem mais clara
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error(`Timeout ao buscar resultados: a API demorou mais de ${timeoutMs / 1000} segundos para responder`)
+      }
+      throw error
     } finally {
       clearTimeout(id)
     }
@@ -344,7 +350,7 @@ export async function GET(req: NextRequest) {
 
   try {
     // Nova fonte principal: resultados organizados
-    const res = await fetchWithTimeout(`${SOURCE_ROOT}/api/resultados/organizados`)
+    const res = await fetchWithTimeout(`${SOURCE_ROOT}/api/resultados/organizados`, 30000) // 30 segundos
     if (!res.ok) throw new Error(`Upstream status ${res.status}`)
 
     const data = await res.json()
@@ -468,13 +474,31 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(payload, { status: 200, headers: { 'Cache-Control': 'no-cache' } })
   } catch (error) {
-    console.error('Erro ao buscar resultados externos:', error)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const isTimeout = errorMessage.includes('Timeout') || errorMessage.includes('aborted') || errorMessage.includes('AbortError')
+    
+    console.error('Erro ao buscar resultados externos:', errorMessage)
+    
+    // Se for timeout, retornar erro específico
+    if (isTimeout) {
+      return NextResponse.json(
+        {
+          results: [],
+          updatedAt: new Date().toISOString(),
+          error: 'Timeout ao buscar resultados externos',
+          message: 'A API de resultados demorou muito para responder. Tente novamente em alguns instantes.',
+        } satisfies ResultadosResponse & { error: string; message: string },
+        { status: 504 } // Gateway Timeout
+      )
+    }
+    
     return NextResponse.json(
       {
         results: [],
         updatedAt: new Date().toISOString(),
         error: 'Falha ao buscar resultados externos',
-      } satisfies ResultadosResponse & { error: string },
+        message: errorMessage,
+      } satisfies ResultadosResponse & { error: string; message: string },
       { status: 502 }
     )
   }

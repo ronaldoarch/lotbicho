@@ -5,12 +5,10 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    // Busca as modalidades do store compartilhado e filtra apenas as ativas
-    const allModalidades = await getModalidades()
-    const activeModalidades = allModalidades.filter((m) => m.active !== false)
-    return NextResponse.json({ modalidades: activeModalidades })
+    const modalidades = await getModalidades()
+    return NextResponse.json({ modalidades, total: modalidades.length })
   } catch (error) {
     console.error('Erro ao buscar modalidades:', error)
-    return NextResponse.json({ modalidades: [] }, { status: 500 })
+    return NextResponse.json({ error: 'Erro ao buscar modalidades' }, { status: 500 })
   }
 }

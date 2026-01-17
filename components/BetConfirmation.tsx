@@ -14,6 +14,7 @@ import {
   type ModalityType 
 } from '@/lib/bet-rules-engine'
 import { getExtracaoById, formatarExtracaoHorario, type Extracao } from '@/lib/extracao-helper'
+import { useModalidades } from '@/hooks/useModalidades'
 
 interface BetConfirmationProps {
   betData: BetData
@@ -24,6 +25,7 @@ interface BetConfirmationProps {
 }
 
 export default function BetConfirmation({ betData, saldoDisponivel, onConfirm, onBack, isSubmitting = false }: BetConfirmationProps) {
+  const { modalidades } = useModalidades()
   const selectedGroups = betData.animalBets || []
   const numberBets = betData.numberBets || []
   const flatSelectedIds = selectedGroups.flat()
@@ -100,8 +102,23 @@ export default function BetConfirmation({ betData, saldoDisponivel, onConfirm, o
       const modalityType = modalityMap[betData.modalityName] || 'GRUPO'
       
       try {
-        // Buscar odd (tenta cotação dinâmica primeiro, depois tabela fixa)
-        const odd = buscarOdd(modalityType, pos_from, pos_to, betData.modalityName)
+        // Buscar cotação da modalidade do banco (se disponível)
+        const modalidadeDoBanco = modalidades.find(m => m.name === betData.modalityName && m.active !== false)
+        let odd: number
+        
+        if (modalidadeDoBanco && modalidadeDoBanco.value) {
+          // Extrair valor da cotação do banco (ex: "1x R$ 20.00" -> 20)
+          const rMatch = modalidadeDoBanco.value.match(/R\$\s*(\d+(?:\.\d+)?)/)
+          if (rMatch) {
+            odd = parseFloat(rMatch[1])
+          } else {
+            // Fallback para buscarOdd se não conseguir extrair
+            odd = buscarOdd(modalityType, pos_from, pos_to, betData.modalityName)
+          }
+        } else {
+          // Usar busca padrão se não encontrar no banco
+          odd = buscarOdd(modalityType, pos_from, pos_to, betData.modalityName)
+        }
         
         // Calcular retorno total (assumindo que todos os palpites acertam)
         let retornoTotal = 0
@@ -133,7 +150,7 @@ export default function BetConfirmation({ betData, saldoDisponivel, onConfirm, o
     }
 
     calcularRetorno()
-  }, [betData.modalityName, betData.position, qtdPalpites, valorPorPalpite, isNumberModality, numberBets, selectedGroups, pos_from, pos_to])
+  }, [betData.modalityName, betData.position, qtdPalpites, valorPorPalpite, isNumberModality, numberBets, selectedGroups, pos_from, pos_to, modalidades])
   
   useEffect(() => {
     const loadExtracao = async () => {

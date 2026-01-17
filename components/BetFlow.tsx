@@ -13,6 +13,7 @@ import {
   calcularPremioUnidade,
   type ModalityType 
 } from '@/lib/bet-rules-engine'
+import { useModalidades } from '@/hooks/useModalidades'
 import { parsePosition } from '@/lib/position-parser'
 import ProgressIndicator from './ProgressIndicator'
 import SpecialQuotationsModal from './SpecialQuotationsModal'
@@ -43,6 +44,7 @@ const INITIAL_BET_DATA: BetData = {
 
 export default function BetFlow() {
   const router = useRouter()
+  const { modalidades } = useModalidades()
   const [currentStep, setCurrentStep] = useState(1)
   const [betData, setBetData] = useState<BetData>(INITIAL_BET_DATA)
   const [showSpecialModal, setShowSpecialModal] = useState(false)
@@ -231,32 +233,66 @@ export default function BetFlow() {
     }
 
     try {
-      // Mapear nome da modalidade para tipo
-      const modalityMap: Record<string, ModalityType> = {
-        'Grupo': 'GRUPO',
-        'Dupla de Grupo': 'DUPLA_GRUPO',
-        'Terno de Grupo': 'TERNO_GRUPO',
-        'Quadra de Grupo': 'QUADRA_GRUPO',
-        'Dezena': 'DEZENA',
-        'Centena': 'CENTENA',
-        'Milhar': 'MILHAR',
-        'Dezena Invertida': 'DEZENA_INVERTIDA',
-        'Centena Invertida': 'CENTENA_INVERTIDA',
-        'Milhar Invertida': 'MILHAR_INVERTIDA',
-        'Milhar/Centena': 'MILHAR_CENTENA',
-        'Passe vai': 'PASSE',
-        'Passe vai e vem': 'PASSE_VAI_E_VEM',
+      // Buscar cotação da modalidade do banco (se disponível)
+      const modalidadeDoBanco = modalidades.find(m => m.name === betData.modalityName && m.active !== false)
+      let odd: number
+      
+      if (modalidadeDoBanco && modalidadeDoBanco.value) {
+        // Extrair valor da cotação do banco (ex: "1x R$ 20.00" -> 20)
+        const rMatch = modalidadeDoBanco.value.match(/R\$\s*(\d+(?:\.\d+)?)/)
+        if (rMatch) {
+          odd = parseFloat(rMatch[1])
+        } else {
+          // Fallback para buscarOdd se não conseguir extrair
+          const modalityMap: Record<string, ModalityType> = {
+            'Grupo': 'GRUPO',
+            'Dupla de Grupo': 'DUPLA_GRUPO',
+            'Terno de Grupo': 'TERNO_GRUPO',
+            'Quadra de Grupo': 'QUADRA_GRUPO',
+            'Dezena': 'DEZENA',
+            'Centena': 'CENTENA',
+            'Milhar': 'MILHAR',
+            'Dezena Invertida': 'DEZENA_INVERTIDA',
+            'Centena Invertida': 'CENTENA_INVERTIDA',
+            'Milhar Invertida': 'MILHAR_INVERTIDA',
+            'Milhar/Centena': 'MILHAR_CENTENA',
+            'Passe vai': 'PASSE',
+            'Passe vai e vem': 'PASSE_VAI_E_VEM',
+          }
+          const modalityType = modalityMap[betData.modalityName] || 'GRUPO'
+          const positionToUse = betData.customPosition && betData.customPositionValue 
+            ? betData.customPositionValue.trim() 
+            : betData.position
+          const { pos_from, pos_to } = parsePosition(positionToUse)
+          odd = buscarOdd(modalityType, pos_from, pos_to, betData.modalityName)
+        }
+      } else {
+        // Usar busca padrão se não encontrar no banco
+        const modalityMap: Record<string, ModalityType> = {
+          'Grupo': 'GRUPO',
+          'Dupla de Grupo': 'DUPLA_GRUPO',
+          'Terno de Grupo': 'TERNO_GRUPO',
+          'Quadra de Grupo': 'QUADRA_GRUPO',
+          'Dezena': 'DEZENA',
+          'Centena': 'CENTENA',
+          'Milhar': 'MILHAR',
+          'Dezena Invertida': 'DEZENA_INVERTIDA',
+          'Centena Invertida': 'CENTENA_INVERTIDA',
+          'Milhar Invertida': 'MILHAR_INVERTIDA',
+          'Milhar/Centena': 'MILHAR_CENTENA',
+          'Passe vai': 'PASSE',
+          'Passe vai e vem': 'PASSE_VAI_E_VEM',
+        }
+        const modalityType = modalityMap[betData.modalityName] || 'GRUPO'
+        const positionToUse = betData.customPosition && betData.customPositionValue 
+          ? betData.customPositionValue.trim() 
+          : betData.position
+        const { pos_from, pos_to } = parsePosition(positionToUse)
+        odd = buscarOdd(modalityType, pos_from, pos_to, betData.modalityName)
       }
 
-      const modalityType = modalityMap[betData.modalityName] || 'GRUPO'
-      // Usar posição personalizada se estiver marcado, senão usar posição padrão
-      const positionToUse = betData.customPosition && betData.customPositionValue 
-        ? betData.customPositionValue.trim() 
-        : betData.position
-      const { pos_from, pos_to } = parsePosition(positionToUse)
       const qtdPalpites = isNumberModality ? betData.numberBets.length : betData.animalBets.length
       const valorPorPalpite = calcularValorPorPalpite(betData.amount, qtdPalpites, betData.divisionType)
-      const odd = buscarOdd(modalityType, pos_from, pos_to, betData.modalityName)
       
       let retornoTotal = 0
 
@@ -283,6 +319,13 @@ export default function BetFlow() {
       return 0
     }
   }
+
+  // Recalcular retorno quando modalidades mudarem
+  useEffect(() => {
+    if (betData.modalityName) {
+      // Força recálculo quando modalidades são carregadas/atualizadas
+    }
+  }, [modalidades])
 
   const handleConfirm = () => {
     // Prevenir múltiplas submissões

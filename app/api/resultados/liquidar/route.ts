@@ -1015,7 +1015,7 @@ export async function POST(request: NextRequest) {
           if (resultadosDoHorario.length > 0) break
         }
         
-        // Se não encontrou match exato, tentar match aproximado (dentro de 15 minutos)
+        // Se não encontrou match exato, tentar match aproximado (escolhendo o MAIS PRÓXIMO)
         if (resultadosDoHorario.length === 0 && horariosParaMatch.length > 0) {
           console.log(`   ⚠️ Nenhum match exato encontrado, tentando match aproximado...`)
           
@@ -1029,7 +1029,19 @@ export async function POST(request: NextRequest) {
             return -1
           }
           
-          for (const horarioParaMatch of horariosParaMatch) {
+          // Se tem horário da aposta explícito, usar tolerância menor (5 minutos)
+          // Caso contrário, usar tolerância maior (15 minutos)
+          const temHorarioApostaExplicito = horarioAposta && horarioAposta !== 'null'
+          const toleranciaMinutos = temHorarioApostaExplicito ? 5 : 15
+          
+          let melhorMatch: { horario: string; resultados: ResultadoItem[]; diferenca: number } | null = null
+          
+          // Priorizar o horário da aposta se existir
+          const horariosPriorizados = temHorarioApostaExplicito 
+            ? [horarioAposta.trim(), ...horariosParaMatch.filter(h => h !== horarioAposta.trim())]
+            : horariosParaMatch
+          
+          for (const horarioParaMatch of horariosPriorizados) {
             const minutosParaMatch = extrairMinutos(horarioParaMatch)
             if (minutosParaMatch === -1) continue
             
@@ -1037,15 +1049,29 @@ export async function POST(request: NextRequest) {
               const [horarioKey, resultados] = resultadosPorHorarioArray[i]
               const minutosKey = extrairMinutos(horarioKey)
               
-              if (minutosKey !== -1 && Math.abs(minutosParaMatch - minutosKey) <= 15) {
-                horarioSelecionado = horarioKey
-                resultadosDoHorario = resultados
-                console.log(`   ✅ Match aproximado encontrado: "${horarioKey}" (diferença: ${Math.abs(minutosParaMatch - minutosKey)} minutos)`)
-                break
+              if (minutosKey !== -1) {
+                const diferenca = Math.abs(minutosParaMatch - minutosKey)
+                
+                // Se está dentro da tolerância e é melhor que o match anterior
+                if (diferenca <= toleranciaMinutos) {
+                  if (!melhorMatch || diferenca < melhorMatch.diferenca) {
+                    melhorMatch = {
+                      horario: horarioKey,
+                      resultados: resultados,
+                      diferenca: diferenca
+                    }
+                  }
+                }
               }
             }
-            
-            if (resultadosDoHorario.length > 0) break
+          }
+          
+          if (melhorMatch) {
+            horarioSelecionado = melhorMatch.horario
+            resultadosDoHorario = melhorMatch.resultados
+            console.log(`   ✅ Match aproximado encontrado: "${melhorMatch.horario}" (diferença: ${melhorMatch.diferenca} minutos, tolerância: ${toleranciaMinutos} min)`)
+          } else {
+            console.log(`   ❌ Nenhum match aproximado encontrado dentro da tolerância de ${toleranciaMinutos} minutos`)
           }
         }
         
@@ -1122,19 +1148,21 @@ export async function POST(request: NextRequest) {
             const minutosAposta = extrairMinutos(horarioApostaNormalizado)
             const minutosSelecionado = extrairMinutos(horarioSelecionadoNormalizado)
             
-            // Se a diferença for maior que 15 minutos, não é o mesmo horário
+            // Se a diferença for maior que a tolerância, não é o mesmo horário
+            // Tolerância menor (5 min) se tem horário explícito na aposta, maior (15 min) caso contrário
+            const toleranciaValidacao = 5 // Sempre usar tolerância menor na validação final
             if (minutosAposta !== -1 && minutosSelecionado !== -1) {
               const diferencaMinutos = Math.abs(minutosAposta - minutosSelecionado)
               
-              if (diferencaMinutos > 15) {
+              if (diferencaMinutos > toleranciaValidacao) {
                 console.log(`   ❌ Horário do resultado não corresponde ao horário da aposta`)
                 console.log(`      Horário da aposta: "${horarioAposta}"`)
                 console.log(`      Horário do resultado: "${horarioSelecionado}"`)
-                console.log(`      Diferença: ${diferencaMinutos} minutos`)
+                console.log(`      Diferença: ${diferencaMinutos} minutos (tolerância: ${toleranciaValidacao} min)`)
                 console.log(`   ⏸️  Não é possível liquidar com horário diferente - aguardando resultado correto`)
                 continue
               } else {
-                console.log(`   ⚠️ Diferença de horário pequena (${diferencaMinutos} minutos) - aceitando`)
+                console.log(`   ✅ Diferença de horário aceitável (${diferencaMinutos} minutos) - aceitando`)
               }
             } else {
               console.log(`   ⚠️ Não foi possível comparar horários numericamente - aceitando`)

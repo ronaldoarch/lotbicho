@@ -1156,14 +1156,13 @@ export async function POST(request: NextRequest) {
             }
             return getPosNumber(a.position) - getPosNumber(b.position)
           })
-          .slice(0, 7) // Limitar a 7 prêmios
 
         if (resultadosOrdenados.length === 0) {
           console.log(`   ❌ Nenhum resultado válido encontrado para aposta ${aposta.id} no horário "${horarioSelecionado}"`)
           continue
         }
         
-        // VALIDAÇÃO ADICIONAL: Verificar se temos todas as posições de 1º a 7º
+        // VALIDAÇÃO ADICIONAL: Verificar quais posições estão presentes ANTES de fazer slice
         const posicoesEncontradas = new Set<number>()
         resultadosOrdenados.forEach((r) => {
           const match = r.position?.match(/(\d+)/)
@@ -1172,6 +1171,10 @@ export async function POST(request: NextRequest) {
           }
         })
         
+        // Log detalhado das posições encontradas
+        const posicoesArray = Array.from(posicoesEncontradas).sort((a, b) => a - b)
+        console.log(`   📊 Posições encontradas nos resultados: [${posicoesArray.join(', ')}] (total: ${resultadosOrdenados.length} resultado(s))`)
+        
         // Verificar se temos pelo menos as posições de 1º a 7º
         const posicoesNecessarias = [1, 2, 3, 4, 5, 6, 7]
         const temTodasPosicoes = posicoesNecessarias.every(pos => posicoesEncontradas.has(pos))
@@ -1179,9 +1182,16 @@ export async function POST(request: NextRequest) {
         if (!temTodasPosicoes) {
           const posicoesFaltando = posicoesNecessarias.filter(pos => !posicoesEncontradas.has(pos))
           console.log(`   ⚠️ Resultado incompleto: faltam posições ${posicoesFaltando.join(', ')}`)
+          console.log(`   📋 Detalhes dos resultados encontrados:`)
+          resultadosOrdenados.slice(0, 10).forEach((r, idx) => {
+            console.log(`      ${idx + 1}. Posição: ${r.position || 'N/A'}, Milhar: ${r.milhar || 'N/A'}, Grupo: ${r.grupo || 'N/A'}`)
+          })
           console.log(`   ⏸️  Aguardando resultado completo para aposta ${aposta.id}`)
           continue
         }
+        
+        // Se tem todas as posições, fazer slice para pegar apenas as 7 primeiras
+        const resultadosParaLiquidacao = resultadosOrdenados.slice(0, 7)
         
         // VALIDAÇÃO FINAL: Verificar se o resultado corresponde à extração/horário/data
         // Esta validação é menos restritiva - se já passou pelos filtros anteriores (loteria, horário, data),
@@ -1234,12 +1244,12 @@ export async function POST(request: NextRequest) {
         }
         
         console.log(`   📊 Prêmios selecionados do horário "${horarioSelecionado}":`)
-        resultadosOrdenados.forEach((r, idx) => {
+        resultadosParaLiquidacao.forEach((r, idx) => {
           console.log(`      ${idx + 1}º: ${r.milhar} (posição: ${r.position}, grupo: ${r.grupo || 'N/A'})`)
         })
 
         // Converter para lista de milhares (formato esperado pelo motor)
-        const milhares = resultadosOrdenados.map((r) => {
+        const milhares = resultadosParaLiquidacao.map((r) => {
           const milharStr = (r.milhar || '0000').replace(/\D/g, '') // Remove não-dígitos
           return parseInt(milharStr.padStart(4, '0').slice(-4)) // Garante 4 dígitos
         })

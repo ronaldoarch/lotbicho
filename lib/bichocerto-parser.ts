@@ -292,6 +292,7 @@ function extrairHorarioDoTitulo(titulo: string, horarioId: string): string {
  */
 function extrairPremiosDaTabela(tableContent: string): BichoCertoResultado['premios'] {
   const premios: BichoCertoResultado['premios'] = []
+  const posicoesJaExtraidas = new Set<string>() // Rastrear posições já extraídas nesta tabela
   
   // Regex para encontrar linhas da tabela (tr)
   const trRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi
@@ -507,6 +508,15 @@ function extrairPremiosDaTabela(tableContent: string): BichoCertoResultado['prem
       }
       
       if (numero && posicao) {
+        // Verificar se esta posição já foi extraída (evitar duplicatas)
+        if (posicoesJaExtraidas.has(posicao)) {
+          console.log(`   ⚠️ Linha ${linhaIndex}: Posição "${posicao}" já foi extraída anteriormente. Ignorando duplicata.`)
+          continue
+        }
+        
+        // Marcar posição como extraída
+        posicoesJaExtraidas.add(posicao)
+        
         // Log especial para 7º prêmio para debug
         if (posicao === '7º' || posicao === '7') {
           console.log(`   🔍 7º PRÊMIO extraído: número="${numero}", grupo="${grupo || 'N/A'}", animal="${animal || 'N/A'}"`)

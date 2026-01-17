@@ -245,12 +245,12 @@ export function converterApostaParaBot(aposta: any): BotAposta {
     
     // IMPORTANTE: Bot pode exigir campo "numero" mesmo para grupos
     // Usar o primeiro grupo como número base (formato: GG00 onde GG é o grupo)
-    if (grupos.length > 0 && grupos[0]) {
+    if (grupos && grupos.length > 0 && grupos[0]) {
       numero = String(grupos[0]).padStart(2, '0') + '00' // Ex: grupo 1 vira "0100"
     }
     
     // Também tentar obter nome do animal para enviar
-    if (betData.animalBets[0] && betData.animalBets[0].length > 0) {
+    if (betData.animalBets && betData.animalBets[0] && betData.animalBets[0].length > 0) {
       const primeiroAnimal = ANIMALS.find((a: any) => a.id === betData.animalBets[0][0])
       if (primeiroAnimal) {
         animal = primeiroAnimal.name
@@ -259,7 +259,7 @@ export function converterApostaParaBot(aposta: any): BotAposta {
   }
 
   // Garantir que sempre temos um número (obrigatório pelo bot)
-  if (!numero && grupos && grupos.length > 0) {
+  if (!numero && grupos && grupos.length > 0 && grupos[0]) {
     numero = String(grupos[0]).padStart(2, '0') + '00'
   }
   

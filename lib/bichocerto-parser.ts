@@ -80,8 +80,12 @@ export async function buscarResultadosBichoCerto(
     
     const html = await response.text()
     
+    // Log detalhado para debug (primeiros 2000 caracteres)
+    console.log(`   📄 HTML recebido (primeiros 2000 chars): ${html.substring(0, 2000)}`)
+    
     // Verificar erros comuns
     if (html.includes('Sem resultados para esta data')) {
+      console.log(`   ⚠️ Resposta indica: Sem resultados para esta data`)
       return {
         erro: 'Sem resultados para esta data',
         dados: {},
@@ -89,16 +93,29 @@ export async function buscarResultadosBichoCerto(
     }
     
     if (html.includes('Só é possível visualizar resultados dos últimos')) {
+      console.log(`   ⚠️ Resposta indica: Data fora do intervalo permitido`)
       return {
         erro: 'Data fora do intervalo permitido (últimos 10 dias para visitantes)',
         dados: {},
       }
     }
     
+    // Verificar se HTML contém estrutura esperada
+    const temDivDisplay = html.includes('div_display_')
+    const temTable = html.includes('<table')
+    console.log(`   🔍 Estrutura HTML: tem div_display=${temDivDisplay}, tem table=${temTable}`)
+    
     // Fazer parsing do HTML
     const resultados = parsearHTML(html, codigoLoteria)
     
+    console.log(`   📊 Resultados parseados: ${Object.keys(resultados).length} extração(ões)`)
+    
     if (Object.keys(resultados).length === 0) {
+      // Log mais detalhado quando não encontra resultados
+      const divMatches = html.match(/div_display_\d+/g)
+      const tableMatches = html.match(/table_\d+/g)
+      console.log(`   ⚠️ Nenhum resultado encontrado. Divs encontradas: ${divMatches?.length || 0}, Tabelas encontradas: ${tableMatches?.length || 0}`)
+      
       return {
         erro: 'Nenhum resultado encontrado no HTML',
         dados: {},
@@ -128,9 +145,26 @@ export async function buscarResultadosBichoCerto(
 function parsearHTML(html: string, codigoLoteria: string): Record<string, BichoCertoExtracao> {
   const resultados: Record<string, BichoCertoExtracao> = {}
   
-  // Regex para encontrar divs de resultado
-  // Formato: <div id="div_display_XX">...</div>
-  const divRegex = /<div[^>]*id="div_display_(\d+)"[^>]*>([\s\S]*?)<\/div>/gi
+  // Tentar múltiplos padrões de regex para encontrar divs
+  // Padrão 1: <div id="div_display_XX">
+  // Padrão 2: <div id='div_display_XX'>
+  // Padrão 3: <div id=div_display_XX>
+  const divRegex1 = /<div[^>]*id=["']div_display_(\d+)["'][^>]*>([\s\S]*?)<\/div>/gi
+  const divRegex2 = /<div[^>]*id=div_display_(\d+)[^>]*>([\s\S]*?)<\/div>/gi
+  
+  // Tentar primeiro padrão
+  let divRegex = divRegex1
+  let testMatch = divRegex.exec(html)
+  
+  // Se não encontrar, tentar segundo padrão
+  if (!testMatch) {
+    divRegex = divRegex2
+    divRegex.lastIndex = 0
+    testMatch = divRegex.exec(html)
+  }
+  
+  // Reset regex para usar no loop
+  divRegex.lastIndex = 0
   
   let match
   while ((match = divRegex.exec(html)) !== null) {

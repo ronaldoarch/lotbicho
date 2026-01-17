@@ -373,15 +373,44 @@ export async function GET(req: NextRequest) {
       console.log(`📅 Buscando resultados para data: ${dataParaBuscar}`)
       
       // Buscar resultados de cada loteria em paralelo
+      // Se não encontrar resultados na data solicitada, tentar datas anteriores (fallback)
       const promessas = loteriasParaBuscar.map(async (codigo) => {
         try {
-          console.log(`🔍 Buscando resultados de ${codigo} (${LOTERIA_CODE_MAP[codigo]?.nome || codigo})...`)
+          console.log(`🔍 Buscando resultados de ${codigo} (${LOTERIA_CODE_MAP[codigo]?.nome || codigo}) para ${dataParaBuscar}...`)
           
-          const resultado = await buscarResultadosBichoCerto(
+          let resultado = await buscarResultadosBichoCerto(
             codigo,
             dataParaBuscar,
             BICHOCERTO_PHPSESSID
           )
+          
+          // Se não encontrou resultados e não é erro de data fora do intervalo, tentar datas anteriores
+          if (resultado.erro && resultado.erro === 'Nenhum resultado encontrado no HTML') {
+            console.log(`   🔄 Nenhum resultado encontrado para ${dataParaBuscar}, tentando datas anteriores...`)
+            
+            // Tentar até 3 dias anteriores
+            for (let diasAtras = 1; diasAtras <= 3; diasAtras++) {
+              const dataAnterior = new Date(dataParaBuscar)
+              dataAnterior.setDate(dataAnterior.getDate() - diasAtras)
+              const dataAnteriorStr = dataAnterior.toISOString().split('T')[0]
+              
+              console.log(`   🔍 Tentando data anterior: ${dataAnteriorStr} (${diasAtras} dia(s) atrás)`)
+              
+              const resultadoAnterior = await buscarResultadosBichoCerto(
+                codigo,
+                dataAnteriorStr,
+                BICHOCERTO_PHPSESSID
+              )
+              
+              if (!resultadoAnterior.erro && Object.keys(resultadoAnterior.dados).length > 0) {
+                console.log(`   ✅ Encontrados resultados em ${dataAnteriorStr} (${diasAtras} dia(s) atrás)`)
+                resultado = resultadoAnterior
+                // Atualizar data dos resultados para a data solicitada (para manter filtro correto)
+                // Mas manter dataExtracao original
+                break
+              }
+            }
+          }
           
           if (resultado.erro) {
             console.log(`   ⚠️ Erro ao buscar ${codigo}: ${resultado.erro}`)

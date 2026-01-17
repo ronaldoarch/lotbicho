@@ -3,14 +3,19 @@
 import { useState } from 'react'
 import { MODALITIES, SPECIAL_QUOTATIONS } from '@/data/modalities'
 import SpecialQuotationsModal from './SpecialQuotationsModal'
+import { useModalidades } from '@/hooks/useModalidades'
 
 export default function QuotationGrid() {
+  const { modalidades } = useModalidades()
   const [showSpecialModal, setShowSpecialModal] = useState(false)
+  
+  // Usar modalidades do banco se disponíveis, senão usar do arquivo estático
+  const modalidadesParaExibir = modalidades.length > 0 ? modalidades : MODALITIES
 
   return (
     <>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {MODALITIES.map((quotation) => (
+        {modalidadesParaExibir.map((quotation) => (
           <div
             key={quotation.id}
             className="flex flex-col rounded-xl border border-gray-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow"

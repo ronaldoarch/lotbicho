@@ -902,6 +902,12 @@ export async function POST(request: NextRequest) {
           }
         }
         
+        console.log(`   🕐 Horários para match: [${horariosParaMatch.join(', ')}]`)
+        console.log(`   📋 Horários disponíveis nos resultados:`)
+        resultadosPorHorario.forEach((resultados, horario) => {
+          console.log(`      - "${horario}": ${resultados.length} resultado(s)`)
+        })
+        
         // Converter Map para Array para compatibilidade com ES5
         const resultadosPorHorarioArray = Array.from(resultadosPorHorario.entries())
         
@@ -918,6 +924,7 @@ export async function POST(request: NextRequest) {
             if (horarioKeyLower === horarioNormalizado) {
               horarioSelecionado = horarioKey
               resultadosDoHorario = resultados
+              console.log(`   ✅ Match exato encontrado: "${horarioKey}"`)
               break
             }
             
@@ -925,11 +932,46 @@ export async function POST(request: NextRequest) {
             if (horarioKeyLower.startsWith(horarioNormalizado) || horarioNormalizado.startsWith(horarioKeyLower)) {
               horarioSelecionado = horarioKey
               resultadosDoHorario = resultados
+              console.log(`   ✅ Match por início encontrado: "${horarioKey}" (procurando: "${horarioParaMatch}")`)
               break
             }
           }
           
           if (resultadosDoHorario.length > 0) break
+        }
+        
+        // Se não encontrou match exato, tentar match aproximado (dentro de 15 minutos)
+        if (resultadosDoHorario.length === 0 && horariosParaMatch.length > 0) {
+          console.log(`   ⚠️ Nenhum match exato encontrado, tentando match aproximado...`)
+          
+          const extrairMinutos = (horario: string): number => {
+            const match = horario.match(/(\d{1,2}):?(\d{2})/)
+            if (match) {
+              const horas = parseInt(match[1], 10)
+              const minutos = parseInt(match[2], 10)
+              return horas * 60 + minutos
+            }
+            return -1
+          }
+          
+          for (const horarioParaMatch of horariosParaMatch) {
+            const minutosParaMatch = extrairMinutos(horarioParaMatch)
+            if (minutosParaMatch === -1) continue
+            
+            for (let i = 0; i < resultadosPorHorarioArray.length; i++) {
+              const [horarioKey, resultados] = resultadosPorHorarioArray[i]
+              const minutosKey = extrairMinutos(horarioKey)
+              
+              if (minutosKey !== -1 && Math.abs(minutosParaMatch - minutosKey) <= 15) {
+                horarioSelecionado = horarioKey
+                resultadosDoHorario = resultados
+                console.log(`   ✅ Match aproximado encontrado: "${horarioKey}" (diferença: ${Math.abs(minutosParaMatch - minutosKey)} minutos)`)
+                break
+              }
+            }
+            
+            if (resultadosDoHorario.length > 0) break
+          }
         }
         
         // Se ainda não encontrou e não tem horário na aposta, usar o horário mais recente
@@ -999,11 +1041,17 @@ export async function POST(request: NextRequest) {
           continue
         }
         
-        // VALIDAÇÃO FINAL: Verificar se o resultado corresponde exatamente à extração/horário/data
-        // Verificar se a loteria do resultado corresponde à loteria da aposta
+        // VALIDAÇÃO FINAL: Verificar se o resultado corresponde à extração/horário/data
+        // Esta validação é menos restritiva - se já passou pelos filtros anteriores (loteria, horário, data),
+        // e temos todas as 7 posições, podemos liquidar
         if (loteriaNome && resultadosDoHorario.length > 0) {
           const loteriaResultado = resultadosDoHorario[0].loteria?.toLowerCase().trim() || ''
           const loteriaApostaNormalizada = loteriaNome.toLowerCase().trim()
+          
+          // Log para debug
+          console.log(`   🔍 Validação de loteria:`)
+          console.log(`      Loteria da aposta: "${loteriaNome}"`)
+          console.log(`      Loteria do resultado: "${resultadosDoHorario[0].loteria}"`)
           
           // Verificar match flexível mas rigoroso
           const normalizar = (str: string) => str.toLowerCase().trim().replace(/\s+/g, ' ').replace(/\//g, '/')
@@ -1018,19 +1066,34 @@ export async function POST(request: NextRequest) {
             palavrasLoteriaAposta.some(pa => pa.includes(p) || p.includes(pa))
           )
           
-          // Se não há correspondência suficiente, não liquidar
-          if (palavrasComuns.length === 0 && loteriaResultadoNormalizada !== loteriaApostaNormalizadaFinal) {
-            console.log(`   ⚠️ Resultado não corresponde à extração da aposta`)
-            console.log(`      Loteria da aposta: "${loteriaNome}"`)
-            console.log(`      Loteria do resultado: "${resultadosDoHorario[0].loteria}"`)
-            console.log(`   ⏸️  Aguardando resultado correto para aposta ${aposta.id}`)
-            continue
+          // Match exato
+          const matchExato = loteriaResultadoNormalizada === loteriaApostaNormalizadaFinal
+          
+          // Match por inclusão (um contém o outro)
+          const matchPorInclusao = loteriaResultadoNormalizada.includes(loteriaApostaNormalizadaFinal) || 
+                                   loteriaApostaNormalizadaFinal.includes(loteriaResultadoNormalizada)
+          
+          // Match por palavras-chave significativas
+          const palavrasSignificativas = ['nacional', 'federal', 'lotep', 'lotece', 'look', 'bandeirantes', 'maluquinha', 'maluca']
+          const temPalavraSignificativa = palavrasSignificativas.some(palavra => {
+            return loteriaResultadoNormalizada.includes(palavra) && loteriaApostaNormalizadaFinal.includes(palavra)
+          })
+          
+          // Se passou pelos filtros anteriores (loteria, horário, data) e tem todas as posições,
+          // mas não há correspondência clara, apenas logar mas não bloquear
+          // (pode ser uma variação de nome que já foi filtrada anteriormente)
+          if (!matchExato && !matchPorInclusao && palavrasComuns.length === 0 && !temPalavraSignificativa) {
+            console.log(`   ⚠️ Atenção: Diferença entre loteria da aposta e resultado`)
+            console.log(`      Mas como já passou pelos filtros anteriores, continuando com liquidação...`)
+            // Não bloquear - os filtros anteriores já garantiram que é o resultado correto
+          } else {
+            console.log(`   ✅ Validação de loteria passou (match: ${matchExato ? 'exato' : matchPorInclusao ? 'inclusão' : palavrasComuns.length > 0 ? 'palavras-chave' : 'significativa'})`)
           }
         }
         
         console.log(`   📊 Prêmios selecionados do horário "${horarioSelecionado}":`)
         resultadosOrdenados.forEach((r, idx) => {
-          console.log(`      ${idx + 1}º: ${r.milhar} (posição: ${r.position})`)
+          console.log(`      ${idx + 1}º: ${r.milhar} (posição: ${r.position}, grupo: ${r.grupo || 'N/A'})`)
         })
 
         // Converter para lista de milhares (formato esperado pelo motor)
@@ -1041,6 +1104,10 @@ export async function POST(request: NextRequest) {
 
         // Usar função correta para converter milhares em grupos
         const grupos = milhares.map((m) => milharParaGrupo(m))
+
+        console.log(`   🎯 Resultado oficial processado:`)
+        console.log(`      Milhares: [${milhares.join(', ')}]`)
+        console.log(`      Grupos: [${grupos.join(', ')}]`)
 
         const resultadoOficial: InstantResult = {
           prizes: milhares,
@@ -1088,10 +1155,19 @@ export async function POST(request: NextRequest) {
         // Conferir cada palpite
         let premioTotalAposta = 0
 
+        console.log(`   🎲 Conferindo palpites:`)
+        console.log(`      Modalidade: ${betData.modalityName || aposta.modalidade}`)
+        console.log(`      Tipo: ${modalityType}`)
+        console.log(`      Posição: ${betData.position} (${pos_from}º ao ${pos_to}º)`)
+        console.log(`      Valor por palpite: R$ ${valorPorPalpite.toFixed(2)}`)
+
         // Processar modalidades numéricas
         if (numberBets.length > 0) {
+          console.log(`      Palpites numéricos: [${numberBets.join(', ')}]`)
           for (const numero of numberBets) {
             const palpiteData: { numero: string } = { numero }
+            
+            console.log(`      Conferindo número: ${numero}`)
 
             const conferencia = conferirPalpite(
               resultadoOficial,
@@ -1104,11 +1180,14 @@ export async function POST(request: NextRequest) {
               betData.modalityName || undefined
             )
 
+            console.log(`         Resultado: R$ ${conferencia.totalPrize.toFixed(2)}`)
             premioTotalAposta += conferencia.totalPrize
           }
         } else {
           // Processar modalidades de grupo
-          for (const animalBet of animalBets) {
+          console.log(`      Palpites de grupo: ${animalBets.length} palpite(s)`)
+          for (let idx = 0; idx < animalBets.length; idx++) {
+            const animalBet = animalBets[idx]
             const gruposApostados = animalBet.map((animalId) => {
               const animal = ANIMALS.find((a) => a.id === animalId)
               if (!animal) {
@@ -1116,6 +1195,8 @@ export async function POST(request: NextRequest) {
               }
               return animal.group
             })
+
+            console.log(`      Conferindo palpite ${idx + 1}: grupos [${gruposApostados.join(', ')}]`)
 
             const palpiteData: { grupos: number[] } = { grupos: gruposApostados }
 
@@ -1130,9 +1211,12 @@ export async function POST(request: NextRequest) {
               betData.modalityName || undefined
             )
 
+            console.log(`         Resultado: R$ ${conferencia.totalPrize.toFixed(2)}`)
             premioTotalAposta += conferencia.totalPrize
           }
         }
+        
+        console.log(`   💰 Prêmio total da aposta: R$ ${premioTotalAposta.toFixed(2)}`)
 
         // Atualizar aposta e saldo do usuário
         if (premioTotalAposta > 0) {

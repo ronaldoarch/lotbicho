@@ -316,35 +316,27 @@ function extrairPremiosDaTabela(tableContent: string): BichoCertoResultado['prem
     }
     
     // Procurar número em todas as células (geralmente 3ª ou 4ª coluna)
-    // Aceitar números de 3 ou 4 dígitos (ex: "015", "494", "4785")
+    // IMPORTANTE: Milhares sempre têm 4 dígitos (ex: "8601", "6000", "1930")
+    // Grupos têm 1-2 dígitos (ex: "01", "25", "8")
+    // Posições têm 1-2 dígitos seguidos de "º" (ex: "1º", "7º")
     for (let i = 0; i < tdMatches.length; i++) {
       const td = tdMatches[i]
       const textoLimpo = limparHTML(td)
       
-      // Tentar encontrar número de 3 ou 4 dígitos (milhar)
-      // Priorizar números de 4 dígitos, mas aceitar 3 dígitos também
-      const numMatch4 = textoLimpo.match(/(\d{4})/)
-      const numMatch3 = textoLimpo.match(/(\d{3})/)
-      
+      // PRIMEIRO: Tentar encontrar número de 4 dígitos (milhar) - PRIORIDADE MÁXIMA
+      const numMatch4 = textoLimpo.match(/\b(\d{4})\b/)
       if (numMatch4) {
         numero = numMatch4[1]
-      } else if (numMatch3 && !numero) {
-        // Aceitar número de 3 dígitos apenas se não encontrou de 4 dígitos
-        // Mas verificar se não é parte de um número maior ou posição
-        const num3 = numMatch3[1]
-        // Ignorar se for apenas a posição (ex: "7" na primeira coluna)
-        if (i > 0 || primeiraColuna !== num3) {
-          numero = num3.padStart(4, '0') // Pad para 4 dígitos
-        }
-      }
-      
-      if (numero) {
-        // Se encontrou número, tentar extrair grupo da próxima célula
+        // Se encontrou número de 4 dígitos, tentar extrair grupo da próxima célula
         if (i + 1 < tdMatches.length) {
           const grupoTexto = limparHTML(tdMatches[i + 1])
-          const grupoMatch = grupoTexto.match(/(\d{1,2})/)
+          const grupoMatch = grupoTexto.match(/\b(\d{1,2})\b/)
           if (grupoMatch) {
-            grupo = grupoMatch[1].padStart(2, '0')
+            const grupoNum = parseInt(grupoMatch[1], 10)
+            // Validar que é um grupo válido (1-25), não outro número
+            if (grupoNum >= 1 && grupoNum <= 25) {
+              grupo = grupoMatch[1].padStart(2, '0')
+            }
           }
         }
         // Tentar extrair animal da última célula
@@ -354,26 +346,23 @@ function extrairPremiosDaTabela(tableContent: string): BichoCertoResultado['prem
         break
       }
       
-      // Tentar encontrar número em link ou h5
+      // SEGUNDO: Tentar encontrar número em link ou h5 (pode ter formatação especial)
       const linkMatch = td.match(/<a[^>]*>([\s\S]*?)<\/a>/i) || td.match(/<h5[^>]*>([\s\S]*?)<\/h5>/i)
       if (linkMatch) {
         const textoLink = limparHTML(linkMatch[1])
-        const numMatchLink4 = textoLink.match(/(\d{4})/)
-        const numMatchLink3 = textoLink.match(/(\d{3})/)
+        const numMatchLink4 = textoLink.match(/\b(\d{4})\b/)
         
         if (numMatchLink4) {
           numero = numMatchLink4[1]
-        } else if (numMatchLink3 && !numero) {
-          numero = numMatchLink3[1].padStart(4, '0')
-        }
-        
-        if (numero) {
           // Tentar extrair grupo da próxima célula
           if (i + 1 < tdMatches.length) {
             const grupoTexto = limparHTML(tdMatches[i + 1])
-            const grupoMatch = grupoTexto.match(/(\d{1,2})/)
+            const grupoMatch = grupoTexto.match(/\b(\d{1,2})\b/)
             if (grupoMatch) {
-              grupo = grupoMatch[1].padStart(2, '0')
+              const grupoNum = parseInt(grupoMatch[1], 10)
+              if (grupoNum >= 1 && grupoNum <= 25) {
+                grupo = grupoMatch[1].padStart(2, '0')
+              }
             }
           }
           // Tentar extrair animal da última célula
@@ -381,6 +370,47 @@ function extrairPremiosDaTabela(tableContent: string): BichoCertoResultado['prem
             animal = limparHTML(tdMatches[tdMatches.length - 1]).trim()
           }
           break
+        }
+      }
+    }
+    
+    // TERCEIRO: Se não encontrou número de 4 dígitos, tentar número de 3 dígitos (pode estar sem zero à esquerda)
+    // Mas apenas se não encontrou nenhum número ainda
+    if (!numero) {
+      for (let i = 0; i < tdMatches.length; i++) {
+        const td = tdMatches[i]
+        const textoLimpo = limparHTML(td)
+        
+        // Ignorar primeira coluna (posição) e números de 1-2 dígitos (grupos)
+        if (i === 0 && textoLimpo.match(/^\d{1,2}[º°]?$/)) {
+          continue
+        }
+        
+        // Tentar encontrar número de 3 dígitos (mas verificar se não é grupo)
+        const numMatch3 = textoLimpo.match(/\b(\d{3})\b/)
+        if (numMatch3) {
+          const num3 = parseInt(numMatch3[1], 10)
+          // Se o número de 3 dígitos for maior que 25, provavelmente é um milhar (ex: "494", "015")
+          // Se for menor ou igual a 25, pode ser um grupo, então ignorar
+          if (num3 > 25) {
+            numero = numMatch3[1].padStart(4, '0') // Pad para 4 dígitos
+            // Tentar extrair grupo da próxima célula
+            if (i + 1 < tdMatches.length) {
+              const grupoTexto = limparHTML(tdMatches[i + 1])
+              const grupoMatch = grupoTexto.match(/\b(\d{1,2})\b/)
+              if (grupoMatch) {
+                const grupoNum = parseInt(grupoMatch[1], 10)
+                if (grupoNum >= 1 && grupoNum <= 25) {
+                  grupo = grupoMatch[1].padStart(2, '0')
+                }
+              }
+            }
+            // Tentar extrair animal da última célula
+            if (tdMatches.length > i + 2) {
+              animal = limparHTML(tdMatches[tdMatches.length - 1]).trim()
+            }
+            break
+          }
         }
       }
     }
@@ -407,18 +437,41 @@ function extrairPremiosDaTabela(tableContent: string): BichoCertoResultado['prem
     }
     
     if (numero && posicao) {
-      premios.push({
-        posicao,
-        numero,
-        grupo: grupo || '',
-        animal: animal || '',
-      })
+      // Validar que o número tem 4 dígitos
+      if (numero.length !== 4) {
+        console.log(`   ⚠️ Linha ${linhaIndex} (${posicao}): Número com formato incorreto: "${numero}" (${numero.length} dígitos)`)
+        // Tentar corrigir se tiver 3 dígitos
+        if (numero.length === 3) {
+          numero = numero.padStart(4, '0')
+          console.log(`      ✅ Corrigido para: "${numero}"`)
+        } else {
+          console.log(`      ❌ Ignorando número inválido`)
+          numero = null
+        }
+      }
+      
+      if (numero && posicao) {
+        // Log especial para 7º prêmio para debug
+        if (posicao === '7º' || posicao === '7') {
+          console.log(`   🔍 7º PRÊMIO extraído: número="${numero}", grupo="${grupo || 'N/A'}", animal="${animal || 'N/A'}"`)
+          console.log(`      Células da linha: ${tdMatches.map((td, idx) => `${idx + 1}ª: "${limparHTML(td)}"`).join(' | ')}`)
+        }
+        
+        premios.push({
+          posicao,
+          numero,
+          grupo: grupo || '',
+          animal: animal || '',
+        })
+      }
     } else {
       console.log(`   ⚠️ Linha ${linhaIndex}: Não foi possível extrair número ou posição`)
       console.log(`      Células encontradas: ${tdMatches.length}`)
       console.log(`      Primeira célula: ${limparHTML(tdMatches[0])}`)
       if (tdMatches.length > 1) console.log(`      Segunda célula: ${limparHTML(tdMatches[1])}`)
       if (tdMatches.length > 2) console.log(`      Terceira célula: ${limparHTML(tdMatches[2])}`)
+      if (tdMatches.length > 3) console.log(`      Quarta célula: ${limparHTML(tdMatches[3])}`)
+      if (tdMatches.length > 4) console.log(`      Quinta célula: ${limparHTML(tdMatches[4])}`)
     }
   }
   

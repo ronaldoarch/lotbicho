@@ -218,6 +218,19 @@ function parsearHTML(html: string, codigoLoteria: string): Record<string, BichoC
     
     console.log(`   📊 Div ${horarioId}: ${premios.length} prêmio(s) extraído(s)`)
     
+    // Log detalhado das posições extraídas
+    if (premios.length > 0) {
+      const posicoesExtraidas = premios.map(p => p.posicao).join(', ')
+      console.log(`      Posições extraídas: ${posicoesExtraidas}`)
+      
+      // Verificar se tem 7º prêmio
+      const tem7Premio = premios.some(p => p.posicao === '7º' || p.posicao === '7')
+      if (!tem7Premio && premios.length >= 6) {
+        console.log(`      ⚠️ ATENÇÃO: Encontrados ${premios.length} prêmios mas NÃO encontrado 7º prêmio!`)
+        console.log(`      Conteúdo da tabela (últimas 500 chars): ${tableContent.slice(-500)}`)
+      }
+    }
+    
     if (premios.length > 0) {
       resultados[horarioId] = {
         horarioId,
@@ -308,11 +321,33 @@ function extrairPremiosDaTabela(tableContent: string): BichoCertoResultado['prem
     let grupo: string | undefined
     let animal: string | undefined
     
-    // Extrair posição (geralmente primeira coluna) - pode ter formato "1º" ou "1"
+    // Extrair posição (geralmente primeira coluna) - pode ter formato "1º", "7º", "1", "7", etc.
     const primeiraColuna = limparHTML(tdMatches[0])
-    const posicaoMatch = primeiraColuna.match(/(\d+)[º°]?/i)
+    const posicaoMatch = primeiraColuna.match(/(\d+)[º°oO]?/i)
     if (posicaoMatch) {
       posicao = `${posicaoMatch[1]}º`
+      
+      // Log especial para 7º prêmio durante extração
+      if (posicaoMatch[1] === '7') {
+        console.log(`   🔍 Linha ${linhaIndex}: Encontrada posição "7º" na primeira coluna: "${primeiraColuna}"`)
+      }
+    } else {
+      // Se não encontrou na primeira coluna, tentar em outras colunas
+      for (let i = 1; i < Math.min(3, tdMatches.length); i++) {
+        const coluna = limparHTML(tdMatches[i])
+        const posicaoMatchAlt = coluna.match(/(\d+)[º°oO]?/i)
+        if (posicaoMatchAlt) {
+          const numPos = parseInt(posicaoMatchAlt[1], 10)
+          // Se for uma posição válida (1-7), usar
+          if (numPos >= 1 && numPos <= 7) {
+            posicao = `${posicaoMatchAlt[1]}º`
+            if (numPos === 7) {
+              console.log(`   🔍 Linha ${linhaIndex}: Encontrada posição "7º" na coluna ${i + 1}: "${coluna}"`)
+            }
+            break
+          }
+        }
+      }
     }
     
     // Procurar número em todas as células (geralmente 3ª ou 4ª coluna)

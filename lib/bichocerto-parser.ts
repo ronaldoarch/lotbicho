@@ -158,49 +158,54 @@ export async function buscarResultadosBichoCerto(
 function parsearHTML(html: string, codigoLoteria: string): Record<string, BichoCertoExtracao> {
   const resultados: Record<string, BichoCertoExtracao> = {}
   
-  // Tentar múltiplos padrões de regex para encontrar divs
-  // Padrão 1: <div id="div_display_XX">
-  // Padrão 2: <div id='div_display_XX'>
-  // Padrão 3: <div id=div_display_XX>
-  const divRegex1 = /<div[^>]*id=["']div_display_(\d+)["'][^>]*>([\s\S]*?)<\/div>/gi
-  const divRegex2 = /<div[^>]*id=div_display_(\d+)[^>]*>([\s\S]*?)<\/div>/gi
-  
-  // Tentar primeiro padrão
-  let divRegex = divRegex1
-  let testMatch = divRegex.exec(html)
-  
-  // Se não encontrar, tentar segundo padrão
-  if (!testMatch) {
-    divRegex = divRegex2
-    divRegex.lastIndex = 0
-    testMatch = divRegex.exec(html)
-  }
-  
-  // Reset regex para usar no loop
-  divRegex.lastIndex = 0
+  // Encontrar todas as divs com id="div_display_XX" usando uma abordagem mais robusta
+  // Primeiro, encontrar todas as divs e suas posições
+  const divRegex = /<div[^>]*id=["']div_display_(\d+)["'][^>]*>/gi
+  const divsEncontradas: Array<{ horarioId: string; startIndex: number }> = []
   
   let match
   while ((match = divRegex.exec(html)) !== null) {
-    const horarioId = match[1]
-    const divContent = match[2]
+    divsEncontradas.push({
+      horarioId: match[1],
+      startIndex: match.index || 0,
+    })
+  }
+  
+  console.log(`   🔍 Encontradas ${divsEncontradas.length} divs com div_display_`)
+  
+  // Para cada div encontrada, extrair seu conteúdo completo
+  for (let i = 0; i < divsEncontradas.length; i++) {
+    const { horarioId, startIndex } = divsEncontradas[i]
+    const nextDivStart = i < divsEncontradas.length - 1 
+      ? divsEncontradas[i + 1].startIndex 
+      : html.length
     
-    // Buscar tabela dentro da div
-    const tableRegex = new RegExp(`<table[^>]*id="table_${horarioId}"[^>]*>([\\s\\S]*?)<\\/table>`, 'i')
-    const tableMatch = divContent.match(tableRegex)
+    // Extrair conteúdo da div (do início até a próxima div ou fim)
+    const divContent = html.substring(startIndex, nextDivStart)
     
-    if (!tableMatch) continue
+    // Buscar tabela dentro da div (pode estar na mesma div ou próxima)
+    const tableRegex = new RegExp(`<table[^>]*id=["']table_${horarioId}["'][^>]*>([\\s\\S]*?)<\\/table>`, 'i')
+    const tableMatch = divContent.match(tableRegex) || html.substring(startIndex).match(tableRegex)
+    
+    if (!tableMatch) {
+      console.log(`   ⚠️ Tabela table_${horarioId} não encontrada para div_display_${horarioId}`)
+      continue
+    }
     
     const tableContent = tableMatch[1]
     
-    // Extrair título (h5.card-title)
+    // Extrair título (h5.card-title ou texto antes da tabela)
     const titleMatch = divContent.match(/<h5[^>]*class="[^"]*card-title[^"]*"[^>]*>([\s\S]*?)<\/h5>/i)
-    const titulo = titleMatch ? limparHTML(titleMatch[1]).trim() : `Extração ${horarioId}h`
+      || divContent.match(/Resultado[^<]*/i)
+    const titulo = titleMatch ? limparHTML(titleMatch[0]).trim() : `Extração ${horarioId}h`
     
     // Extrair horário do título ou usar horarioId
     const horario = extrairHorarioDoTitulo(titulo, horarioId)
     
     // Extrair prêmios da tabela
     const premios = extrairPremiosDaTabela(tableContent)
+    
+    console.log(`   📊 Div ${horarioId}: ${premios.length} prêmio(s) extraído(s)`)
     
     if (premios.length > 0) {
       resultados[horarioId] = {
@@ -209,6 +214,9 @@ function parsearHTML(html: string, codigoLoteria: string): Record<string, BichoC
         titulo,
         premios,
       }
+    } else {
+      console.log(`   ⚠️ Nenhum prêmio extraído da tabela table_${horarioId}`)
+      console.log(`   📄 Conteúdo da tabela (primeiros 500 chars): ${tableContent.substring(0, 500)}`)
     }
   }
   
@@ -246,71 +254,113 @@ function extrairPremiosDaTabela(tableContent: string): BichoCertoResultado['prem
   const trRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi
   
   let trMatch
+  let linhaIndex = 0
   while ((trMatch = trRegex.exec(tableContent)) !== null) {
+    linhaIndex++
     const trContent = trMatch[1]
     
     // Extrair células (td)
     const tdMatches = trContent.match(/<td[^>]*>([\s\S]*?)<\/td>/gi)
-    if (!tdMatches || tdMatches.length < 3) continue
+    if (!tdMatches || tdMatches.length < 2) {
+      continue
+    }
     
-    // Normalmente: [posição, grupo?, número, animal?, ...]
+    // Normalmente: [posição, emoji?, número, grupo, animal]
     // Tentar extrair número (geralmente na 3ª coluna ou em link/h5)
     let numero: string | null = null
     let posicao: string | null = null
     let grupo: string | undefined
     let animal: string | undefined
     
-    // Extrair posição (geralmente primeira coluna)
+    // Extrair posição (geralmente primeira coluna) - pode ter formato "1º" ou "1"
     const primeiraColuna = limparHTML(tdMatches[0])
-    const posicaoMatch = primeiraColuna.match(/(\d+)[º°]/i)
+    const posicaoMatch = primeiraColuna.match(/(\d+)[º°]?/i)
     if (posicaoMatch) {
       posicao = `${posicaoMatch[1]}º`
     }
     
-    // Procurar número em links ou h5 (geralmente na 3ª coluna)
+    // Procurar número em todas as células (geralmente 3ª ou 4ª coluna)
     for (let i = 0; i < tdMatches.length; i++) {
       const td = tdMatches[i]
+      const textoLimpo = limparHTML(td)
+      
+      // Tentar encontrar número de 4 dígitos (milhar)
+      const numMatch = textoLimpo.match(/(\d{4})/)
+      if (numMatch) {
+        numero = numMatch[1]
+        // Se encontrou número, tentar extrair grupo da próxima célula
+        if (i + 1 < tdMatches.length) {
+          const grupoTexto = limparHTML(tdMatches[i + 1])
+          const grupoMatch = grupoTexto.match(/(\d{1,2})/)
+          if (grupoMatch) {
+            grupo = grupoMatch[1].padStart(2, '0')
+          }
+        }
+        // Tentar extrair animal da última célula
+        if (tdMatches.length > i + 2) {
+          animal = limparHTML(tdMatches[tdMatches.length - 1]).trim()
+        }
+        break
+      }
       
       // Tentar encontrar número em link ou h5
       const linkMatch = td.match(/<a[^>]*>([\s\S]*?)<\/a>/i) || td.match(/<h5[^>]*>([\s\S]*?)<\/h5>/i)
       if (linkMatch) {
-        const texto = limparHTML(linkMatch[1])
-        const numMatch = texto.match(/(\d{3,4})/)
-        if (numMatch) {
-          numero = numMatch[1]
+        const textoLink = limparHTML(linkMatch[1])
+        const numMatchLink = textoLink.match(/(\d{4})/)
+        if (numMatchLink) {
+          numero = numMatchLink[1]
+          // Tentar extrair grupo da próxima célula
+          if (i + 1 < tdMatches.length) {
+            const grupoTexto = limparHTML(tdMatches[i + 1])
+            const grupoMatch = grupoTexto.match(/(\d{1,2})/)
+            if (grupoMatch) {
+              grupo = grupoMatch[1].padStart(2, '0')
+            }
+          }
+          // Tentar extrair animal da última célula
+          if (tdMatches.length > i + 2) {
+            animal = limparHTML(tdMatches[tdMatches.length - 1]).trim()
+          }
           break
         }
       }
-      
-      // Tentar encontrar número direto no texto
-      const textoLimpo = limparHTML(td)
-      const numMatch = textoLimpo.match(/(\d{3,4})/)
-      if (numMatch && !numero) {
-        numero = numMatch[1]
+    }
+    
+    // Se não encontrou grupo ainda, tentar procurar em outras células
+    if (!grupo) {
+      for (let i = 0; i < tdMatches.length; i++) {
+        const grupoTexto = limparHTML(tdMatches[i])
+        const grupoMatch = grupoTexto.match(/(\d{1,2})/)
+        if (grupoMatch && grupoMatch[1] !== posicao?.replace('º', '')) {
+          grupo = grupoMatch[1].padStart(2, '0')
+          break
+        }
       }
     }
     
-    // Extrair grupo (geralmente 2ª ou 3ª coluna)
-    if (tdMatches.length > 1) {
-      const grupoTexto = limparHTML(tdMatches[1])
-      const grupoMatch = grupoTexto.match(/(\d{1,2})/)
-      if (grupoMatch) {
-        grupo = grupoMatch[1]
+    // Se não encontrou animal ainda, tentar da última célula
+    if (!animal && tdMatches.length > 0) {
+      const ultimaColuna = limparHTML(tdMatches[tdMatches.length - 1])
+      // Se não é número e não é emoji, pode ser animal
+      if (!ultimaColuna.match(/^\d+$/) && ultimaColuna.length > 0) {
+        animal = ultimaColuna.trim()
       }
-    }
-    
-    // Extrair animal (geralmente última coluna)
-    if (tdMatches.length > 3) {
-      animal = limparHTML(tdMatches[tdMatches.length - 1]).trim()
     }
     
     if (numero && posicao) {
       premios.push({
         posicao,
         numero,
-        grupo,
-        animal,
+        grupo: grupo || '',
+        animal: animal || '',
       })
+    } else {
+      console.log(`   ⚠️ Linha ${linhaIndex}: Não foi possível extrair número ou posição`)
+      console.log(`      Células encontradas: ${tdMatches.length}`)
+      console.log(`      Primeira célula: ${limparHTML(tdMatches[0])}`)
+      if (tdMatches.length > 1) console.log(`      Segunda célula: ${limparHTML(tdMatches[1])}`)
+      if (tdMatches.length > 2) console.log(`      Terceira célula: ${limparHTML(tdMatches[2])}`)
     }
   }
   

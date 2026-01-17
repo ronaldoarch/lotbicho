@@ -63,15 +63,23 @@ export async function enviarApostaParaBot(
       multiplicador: aposta.multiplicador || 18.0,
     }
 
-    // Adicionar número ou grupos dependendo do tipo
+    // Adicionar número (sempre obrigatório pelo bot)
     if (aposta.numero) {
-      payload.numero = aposta.numero.padStart(4, '0')
+      payload.numero = String(aposta.numero).padStart(4, '0')
+    } else {
+      // Se não tem número, usar padrão (já deve ter sido gerado na conversão)
+      payload.numero = '0000'
+      console.warn(`⚠️ Aposta ${aposta.aposta_id_externo} sem número, usando padrão`)
     }
-    if (aposta.animal) {
-      payload.animal = aposta.animal
-    }
+    
+    // Adicionar grupos se disponível
     if (aposta.grupos && aposta.grupos.length > 0) {
       payload.grupos = aposta.grupos
+    }
+    
+    // Adicionar animal se disponível
+    if (aposta.animal) {
+      payload.animal = aposta.animal
     }
 
     // Campos opcionais
@@ -234,6 +242,31 @@ export function converterApostaParaBot(aposta: any): BotAposta {
       const animal = ANIMALS.find((a: any) => a.id === animalId)
       return animal?.group || 0
     }).filter((g: number) => g > 0)
+    
+    // IMPORTANTE: Bot pode exigir campo "numero" mesmo para grupos
+    // Usar o primeiro grupo como número base (formato: GG00 onde GG é o grupo)
+    if (grupos.length > 0 && grupos[0]) {
+      numero = String(grupos[0]).padStart(2, '0') + '00' // Ex: grupo 1 vira "0100"
+    }
+    
+    // Também tentar obter nome do animal para enviar
+    if (betData.animalBets[0] && betData.animalBets[0].length > 0) {
+      const primeiroAnimal = ANIMALS.find((a: any) => a.id === betData.animalBets[0][0])
+      if (primeiroAnimal) {
+        animal = primeiroAnimal.name
+      }
+    }
+  }
+
+  // Garantir que sempre temos um número (obrigatório pelo bot)
+  if (!numero && grupos && grupos.length > 0) {
+    numero = String(grupos[0]).padStart(2, '0') + '00'
+  }
+  
+  // Se ainda não tem número, usar um padrão (não ideal, mas necessário)
+  if (!numero) {
+    numero = '0000'
+    console.warn(`⚠️ Aposta ${aposta.id} não tem número nem grupos, usando padrão "0000"`)
   }
 
   return {
@@ -241,6 +274,7 @@ export function converterApostaParaBot(aposta: any): BotAposta {
     usuario_id: aposta.usuarioId,
     numero,
     grupos,
+    animal,
     valor: aposta.valor,
     loteria: aposta.loteria || '',
     horario: aposta.horario || '',

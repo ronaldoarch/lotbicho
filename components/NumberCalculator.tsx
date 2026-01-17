@@ -19,6 +19,8 @@ const MODALITY_DIGITS: Record<string, number> = {
   'Centena Invertida': 3,
   'Milhar Invertida': 4,
   'Milhar/Centena': 4, // Aceita 3 ou 4 dígitos
+  'Duque de Dezena': 2,
+  'Terno de Dezena': 2,
 }
 
 export default function NumberCalculator({

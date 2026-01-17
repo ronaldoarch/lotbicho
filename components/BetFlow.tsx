@@ -75,6 +75,8 @@ export default function BetFlow() {
       'Centena Invertida',
       'Dezena Invertida',
       'Milhar/Centena',
+      'Duque de Dezena',
+      'Terno de Dezena',
     ]
     return numberModalities.includes(modalityName)
   }, [betData.modalityName])

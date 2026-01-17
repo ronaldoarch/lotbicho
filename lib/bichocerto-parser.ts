@@ -437,15 +437,29 @@ function extrairPremiosDaTabela(tableContent: string): BichoCertoResultado['prem
     }
     
     if (numero && posicao) {
-      // Validar que o número tem 4 dígitos
+      // CRÍTICO: Normalizar número para sempre ter 4 dígitos
+      // Milhares sempre devem ter 4 dígitos (ex: "494" -> "0494", "15" -> "0015")
+      const numeroOriginal = numero
+      
+      // Se tem menos de 4 dígitos, fazer pad com zeros à esquerda
+      if (numero.length < 4) {
+        numero = numero.padStart(4, '0')
+        console.log(`   🔧 Linha ${linhaIndex} (${posicao}): Número normalizado "${numeroOriginal}" -> "${numero}"`)
+      }
+      
+      // Validar que o número tem exatamente 4 dígitos após normalização
       if (numero.length !== 4) {
-        console.log(`   ⚠️ Linha ${linhaIndex} (${posicao}): Número com formato incorreto: "${numero}" (${numero.length} dígitos)`)
-        // Tentar corrigir se tiver 3 dígitos
-        if (numero.length === 3) {
-          numero = numero.padStart(4, '0')
-          console.log(`      ✅ Corrigido para: "${numero}"`)
-        } else {
-          console.log(`      ❌ Ignorando número inválido`)
+        console.log(`   ❌ Linha ${linhaIndex} (${posicao}): Número inválido após normalização: "${numero}" (${numero.length} dígitos)`)
+        numero = null
+      }
+      
+      // Validar que é um número válido (não pode ser grupo ou posição)
+      if (numero) {
+        const numValue = parseInt(numero, 10)
+        // Se o número normalizado for menor ou igual a 25, pode ser um grupo, não um milhar
+        // Mas se já foi extraído como número de 3-4 dígitos, provavelmente é milhar mesmo
+        if (numValue <= 25 && numeroOriginal.length <= 2) {
+          console.log(`   ⚠️ Linha ${linhaIndex} (${posicao}): Número "${numero}" pode ser grupo, não milhar. Ignorando.`)
           numero = null
         }
       }
@@ -459,7 +473,7 @@ function extrairPremiosDaTabela(tableContent: string): BichoCertoResultado['prem
         
         premios.push({
           posicao,
-          numero,
+          numero, // Sempre 4 dígitos aqui
           grupo: grupo || '',
           animal: animal || '',
         })

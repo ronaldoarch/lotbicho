@@ -195,12 +195,23 @@ function parsearHTML(html: string, codigoLoteria: string): Record<string, BichoC
     const tableContent = tableMatch[1]
     
     // Extrair título (h5.card-title ou texto antes da tabela)
-    const titleMatch = divContent.match(/<h5[^>]*class="[^"]*card-title[^"]*"[^>]*>([\s\S]*?)<\/h5>/i)
-      || divContent.match(/Resultado[^<]*/i)
-    const titulo = titleMatch ? limparHTML(titleMatch[0]).trim() : `Extração ${horarioId}h`
+    // Tentar múltiplos padrões para capturar o título completo
+    let titleMatch = divContent.match(/<h5[^>]*class="[^"]*card-title[^"]*"[^>]*>([\s\S]*?)<\/h5>/i)
+    if (!titleMatch) {
+      // Tentar encontrar título em outras tags ou texto antes da tabela
+      titleMatch = divContent.match(/Resultado[^<]*/i)
+        || divContent.match(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/i)
+    }
+    
+    const titulo = titleMatch ? limparHTML(titleMatch[1] || titleMatch[0]).trim() : `Extração ${horarioId}h`
     
     // Extrair horário do título ou usar horarioId
     const horario = extrairHorarioDoTitulo(titulo, horarioId)
+    
+    // Log para debug de horários
+    if (horario !== `${horarioId.padStart(2, '0')}:00`) {
+      console.log(`   ⏰ Horário extraído: "${titulo}" -> ${horario}`)
+    }
     
     // Extrair prêmios da tabela
     const premios = extrairPremiosDaTabela(tableContent)
@@ -227,6 +238,14 @@ function parsearHTML(html: string, codigoLoteria: string): Record<string, BichoC
  * Extrai horário do título ou converte horarioId
  */
 function extrairHorarioDoTitulo(titulo: string, horarioId: string): string {
+  // Tentar extrair horário completo com minutos (ex: "PT-SP 20:40" -> "20:40")
+  const horaMinutoMatch = titulo.match(/(\d{1,2}):(\d{2})/)
+  if (horaMinutoMatch) {
+    const hora = horaMinutoMatch[1].padStart(2, '0')
+    const minuto = horaMinutoMatch[2].padStart(2, '0')
+    return `${hora}:${minuto}`
+  }
+  
   // Tentar extrair horário do título (ex: "Resultado Nacional 23h" -> "23:00")
   const horaMatch = titulo.match(/(\d{1,2})h/i)
   if (horaMatch) {
@@ -234,13 +253,24 @@ function extrairHorarioDoTitulo(titulo: string, horarioId: string): string {
     return `${hora}:00`
   }
   
-  // Converter horarioId para formato de horário (ex: "23" -> "23:00")
-  if (horarioId.length === 2) {
+  // Converter horarioId para formato de horário
+  // Se horarioId tem 2 dígitos, usar como hora (ex: "23" -> "23:00")
+  if (horarioId.length === 2 && /^\d{2}$/.test(horarioId)) {
     return `${horarioId}:00`
   }
   
-  // Se horarioId tem formato diferente (ex: "20" para 20h40)
-  // Tentar mapear para horário correto baseado no código da loteria
+  // Se horarioId tem 1 dígito, preencher com zero (ex: "9" -> "09:00")
+  if (horarioId.length === 1 && /^\d$/.test(horarioId)) {
+    return `${horarioId.padStart(2, '0')}:00`
+  }
+  
+  // Fallback: tentar usar horarioId como está, mas garantir formato válido
+  const horarioIdNum = parseInt(horarioId, 10)
+  if (!isNaN(horarioIdNum) && horarioIdNum >= 0 && horarioIdNum <= 23) {
+    return `${horarioIdNum.toString().padStart(2, '0')}:00`
+  }
+  
+  // Se nada funcionar, retornar horário padrão baseado no ID
   return `${horarioId.padStart(2, '0')}:00`
 }
 

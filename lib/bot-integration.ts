@@ -36,7 +36,7 @@ export async function enviarApostaParaBot(
   aposta: BotAposta,
   botApiUrl?: string
 ): Promise<BotResponse> {
-  const BOT_API_URL = botApiUrl || process.env.BOT_API_URL || ''
+  let BOT_API_URL = botApiUrl || process.env.BOT_API_URL || ''
   
   if (!BOT_API_URL) {
     console.warn('⚠️ BOT_API_URL não configurado, pulando envio para bot')
@@ -45,6 +45,12 @@ export async function enviarApostaParaBot(
       erro: 'BOT_API_URL não configurado',
     }
   }
+
+  // Normalizar URL: remover barra final e garantir que não tenha /api duplicado
+  BOT_API_URL = BOT_API_URL.trim().replace(/\/+$/, '') // Remove barras finais
+  // Se a URL já termina com /api, não adicionar novamente
+  const endpointPath = BOT_API_URL.endsWith('/api') ? '/apostas/receber' : '/api/apostas/receber'
+  const urlFinal = `${BOT_API_URL}${endpointPath}`
 
   try {
     const payload: any = {
@@ -92,9 +98,9 @@ export async function enviarApostaParaBot(
       headers['Authorization'] = `Bearer ${BOT_API_KEY}`
     }
 
-    console.log(`📤 Enviando aposta ${aposta.aposta_id_externo} para bot: ${BOT_API_URL}/api/apostas/receber`)
+    console.log(`📤 Enviando aposta ${aposta.aposta_id_externo} para bot: ${urlFinal}`)
     
-    const response = await fetch(`${BOT_API_URL}/api/apostas/receber`, {
+    const response = await fetch(urlFinal, {
       method: 'POST',
       headers,
       body: JSON.stringify(payload),
@@ -158,7 +164,7 @@ export async function enviarApostaParaBot(
  * Verificar status do bot
  */
 export async function verificarStatusBot(botApiUrl?: string): Promise<any> {
-  const BOT_API_URL = botApiUrl || process.env.BOT_API_URL || ''
+  let BOT_API_URL = botApiUrl || process.env.BOT_API_URL || ''
   
   if (!BOT_API_URL) {
     return {
@@ -167,6 +173,11 @@ export async function verificarStatusBot(botApiUrl?: string): Promise<any> {
     }
   }
 
+  // Normalizar URL: remover barra final e garantir que não tenha /api duplicado
+  BOT_API_URL = BOT_API_URL.trim().replace(/\/+$/, '')
+  const endpointPath = BOT_API_URL.endsWith('/api') ? '/status' : '/api/status'
+  const urlFinal = `${BOT_API_URL}${endpointPath}`
+
   try {
     const headers: Record<string, string> = {}
     const BOT_API_KEY = process.env.BOT_API_KEY
@@ -174,7 +185,7 @@ export async function verificarStatusBot(botApiUrl?: string): Promise<any> {
       headers['Authorization'] = `Bearer ${BOT_API_KEY}`
     }
 
-    const response = await fetch(`${BOT_API_URL}/api/status`, {
+    const response = await fetch(urlFinal, {
       headers,
     })
 

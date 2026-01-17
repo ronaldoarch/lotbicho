@@ -296,8 +296,8 @@ export function converterParaFormatoSistema(
 ): Array<{
   position: string
   milhar: string
-  grupo?: string
-  animal?: string
+  grupo: string
+  animal: string
   drawTime: string
   horario: string
   loteria: string
@@ -311,8 +311,8 @@ export function converterParaFormatoSistema(
   const resultadosFormatados: Array<{
     position: string
     milhar: string
-    grupo?: string
-    animal?: string
+    grupo: string
+    animal: string
     drawTime: string
     horario: string
     loteria: string
@@ -327,8 +327,8 @@ export function converterParaFormatoSistema(
       resultadosFormatados.push({
         position: premio.posicao,
         milhar: premio.numero,
-        grupo: premio.grupo,
-        animal: premio.animal,
+        grupo: premio.grupo || '', // Garantir que seja string, não undefined
+        animal: premio.animal || '', // Garantir que seja string, não undefined
         drawTime: extracao.horario,
         horario: extracao.horario,
         loteria: loteriaInfo.nome,
@@ -361,8 +361,8 @@ export async function buscarResultadosParaLiquidacao(
   resultadosPorHorario: Record<string, Array<{
     position: string
     milhar: string
-    grupo?: string
-    animal?: string
+    grupo: string
+    animal: string
     drawTime: string
     horario: string
     loteria: string
@@ -390,19 +390,19 @@ export async function buscarResultadosParaLiquidacao(
       resultadosPorHorario[horario] = []
     }
     
-    extracao.premios.forEach((premio) => {
-      resultadosPorHorario[horario].push({
-        position: premio.posicao,
-        milhar: premio.numero,
-        grupo: premio.grupo,
-        animal: premio.animal,
-        drawTime: extracao.horario,
-        horario: extracao.horario,
-        loteria: loteriaInfo.nome,
-        date: data,
-        dataExtracao: data,
+      extracao.premios.forEach((premio) => {
+        resultadosPorHorario[horario].push({
+          position: premio.posicao,
+          milhar: premio.numero,
+          grupo: premio.grupo || '', // Garantir que seja string
+          animal: premio.animal || '', // Garantir que seja string
+          drawTime: extracao.horario,
+          horario: extracao.horario,
+          loteria: loteriaInfo.nome,
+          date: data,
+          dataExtracao: data,
+        })
       })
-    })
   })
   
   return {

@@ -18,7 +18,18 @@ function sortByPosition(rows: (ResultadoItem | ResultData)[]) {
     return match ? parseInt(match[1], 10) : Number.MAX_SAFE_INTEGER
   }
 
-  return [...rows].sort((a, b) => getOrder(a.position) - getOrder(b.position))
+  // Remover duplicatas por posição (manter apenas o primeiro de cada posição)
+  const seenPositions = new Set<string>()
+  const uniqueRows = rows.filter((row) => {
+    const posKey = row.position?.trim() || ''
+    if (seenPositions.has(posKey)) {
+      return false // Já existe esta posição, ignorar
+    }
+    seenPositions.add(posKey)
+    return true
+  })
+
+  return [...uniqueRows].sort((a, b) => getOrder(a.position) - getOrder(b.position))
 }
 
 export default function ResultsTable({

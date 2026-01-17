@@ -36,6 +36,7 @@ export const LOTERIA_CODE_MAP: Record<string, { nome: string; estado?: string }>
   lce: { nome: 'LOTECE', estado: 'CE' },
   lk: { nome: 'LOOK', estado: 'GO' },
   fd: { nome: 'FEDERAL', estado: 'BR' },
+  rj: { nome: 'PT RIO DE JANEIRO', estado: 'RJ' },
   m: { nome: 'MILHAR', estado: 'BR' },
 }
 

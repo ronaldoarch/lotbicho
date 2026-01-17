@@ -368,7 +368,7 @@ export async function GET(req: NextRequest) {
       const resultadosCombinados: ResultadoItem[] = []
       
       // Buscar resultados de todas as loterias principais
-      const loteriasParaBuscar = ['ln', 'sp', 'ba', 'pb', 'bs', 'lce', 'lk', 'fd']
+      const loteriasParaBuscar = ['ln', 'sp', 'ba', 'pb', 'bs', 'lce', 'lk', 'fd', 'rj']
       
       console.log(`📅 Buscando resultados para data: ${dataParaBuscar}`)
       

@@ -347,6 +347,33 @@ export async function POST(request: Request) {
         },
       })
 
+      // Se não for aposta instantânea e bot estiver configurado, enviar para bot externo
+      if (!isInstant && process.env.BOT_API_URL && process.env.USAR_BOT_LIQUIDACAO === 'true') {
+        try {
+          const { enviarApostaParaBot, converterApostaParaBot } = await import('@/lib/bot-integration')
+          const apostaBot = converterApostaParaBot(created)
+          const resultadoBot = await enviarApostaParaBot(apostaBot)
+          
+          if (resultadoBot.sucesso && resultadoBot.aposta_id_bot) {
+            // Atualizar aposta com ID do bot
+            await tx.aposta.update({
+              where: { id: created.id },
+              data: {
+                detalhes: {
+                  ...(created.detalhes as any || {}),
+                  aposta_id_bot: resultadoBot.aposta_id_bot,
+                  enviado_para_bot: true,
+                },
+              },
+            })
+            console.log(`✅ Aposta ${created.id} enviada para bot externo (ID bot: ${resultadoBot.aposta_id_bot})`)
+          }
+        } catch (error) {
+          // Não falhar criação da aposta se envio para bot falhar
+          console.error(`⚠️ Erro ao enviar aposta ${created.id} para bot:`, error)
+        }
+      }
+
       return { ...created, resultadoInstantaneo, premioTotal }
     })
 

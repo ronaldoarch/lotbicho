@@ -33,12 +33,19 @@ export default function ResultsTable({
   const rows = sortByPosition(baseRows)
 
   return (
-    <div className="overflow-x-auto rounded-xl bg-white">
-      <div className="mb-4">
-        <h2 className="text-lg font-bold text-gray-950">
-          {date} - {drawTime}
-        </h2>
-        <p className="text-sm text-gray-600">Local: {location}</p>
+    <div className="overflow-x-auto rounded-xl bg-white border border-gray-200">
+      <div className="mb-4 border-b border-gray-200 bg-blue/5 px-4 py-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-gray-950">
+              {date} - <span className="text-blue">{drawTime}</span>
+            </h2>
+            <p className="text-sm text-gray-600">Local: {location}</p>
+          </div>
+          <div className="rounded-full bg-blue px-3 py-1">
+            <span className="text-xs font-semibold text-white">{drawTime}</span>
+          </div>
+        </div>
       </div>
 
       <table className="w-full border-collapse">

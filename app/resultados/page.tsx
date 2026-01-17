@@ -119,6 +119,25 @@ export default function ResultadosPage() {
                   </div>
                 )}
 
+                {/* Lista de horários disponíveis */}
+                {!loading && groupedResults.length > 0 && (
+                  <div className="mb-4 rounded-lg bg-blue/5 p-4">
+                    <h3 className="mb-2 text-sm font-semibold text-gray-700">
+                      Horários disponíveis ({groupedResults.length}):
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {groupedResults.map((group) => (
+                        <span
+                          key={`badge-${group.drawTime}`}
+                          className="inline-flex items-center rounded-full bg-blue/10 px-3 py-1 text-xs font-medium text-blue"
+                        >
+                          {group.drawTime}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {!loading &&
                   groupedResults.map((group) => (
                     <div key={`${group.drawTime}-${group.dateLabel}`} className="mb-6 last:mb-0">

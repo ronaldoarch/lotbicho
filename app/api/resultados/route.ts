@@ -350,11 +350,43 @@ export async function GET(req: NextRequest) {
 
   try {
     // Nova fonte principal: resultados organizados
+    console.log(`🔗 Buscando resultados de: ${SOURCE_ROOT}/api/resultados/organizados`)
     const res = await fetchWithTimeout(`${SOURCE_ROOT}/api/resultados/organizados`, 30000) // 30 segundos
-    if (!res.ok) throw new Error(`Upstream status ${res.status}`)
+    
+    if (!res.ok) {
+      const errorText = await res.text().catch(() => 'Erro desconhecido')
+      console.error(`❌ Erro ao buscar resultados: HTTP ${res.status} - ${errorText.substring(0, 200)}`)
+      throw new Error(`Upstream status ${res.status}: ${errorText.substring(0, 100)}`)
+    }
+
+    const contentType = res.headers.get('content-type') || ''
+    if (!contentType.includes('application/json')) {
+      const text = await res.text()
+      console.error(`❌ Resposta não é JSON. Content-Type: ${contentType}`)
+      console.error(`❌ Primeiros 500 caracteres da resposta: ${text.substring(0, 500)}`)
+      throw new Error(`Resposta não é JSON. Content-Type: ${contentType}`)
+    }
 
     const data = await res.json()
     const organizados = data?.organizados || {}
+    
+    console.log(`📦 Dados recebidos: ${Object.keys(organizados).length} extração(ões) encontrada(s)`)
+    
+    // Se não há dados organizados, tentar endpoint alternativo
+    if (Object.keys(organizados).length === 0) {
+      console.log(`⚠️ Nenhum dado em /organizados, tentando endpoint alternativo...`)
+      try {
+        const resAlt = await fetchWithTimeout(`${SOURCE_ROOT}/api/resultados`, 30000)
+        if (resAlt.ok) {
+          const dataAlt = await resAlt.json()
+          console.log(`📦 Endpoint alternativo retornou: ${Array.isArray(dataAlt) ? dataAlt.length : 'dados'} resultados`)
+          // Se o endpoint alternativo retornar dados, processar aqui
+          // Por enquanto, apenas logar
+        }
+      } catch (altError) {
+        console.error(`❌ Erro ao tentar endpoint alternativo:`, altError)
+      }
+    }
 
     let results: ResultadoItem[] = []
     let totalTabelas = 0

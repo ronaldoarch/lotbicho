@@ -92,16 +92,43 @@ export async function enviarApostaParaBot(
       headers['Authorization'] = `Bearer ${BOT_API_KEY}`
     }
 
+    console.log(`📤 Enviando aposta ${aposta.aposta_id_externo} para bot: ${BOT_API_URL}/api/apostas/receber`)
+    
     const response = await fetch(`${BOT_API_URL}/api/apostas/receber`, {
       method: 'POST',
       headers,
       body: JSON.stringify(payload),
     })
 
-    const data = await response.json()
+    // Verificar se resposta é JSON antes de fazer parse
+    const contentType = response.headers.get('content-type') || ''
+    let data: any
+    
+    if (contentType.includes('application/json')) {
+      try {
+        data = await response.json()
+      } catch (parseError) {
+        const text = await response.text()
+        console.error(`❌ Erro ao fazer parse do JSON do bot: ${parseError}`)
+        console.error(`❌ Resposta recebida (primeiros 500 chars): ${text.substring(0, 500)}`)
+        return {
+          sucesso: false,
+          erro: `Resposta inválida do bot (não é JSON válido). Status: ${response.status}`,
+        }
+      }
+    } else {
+      // Se não for JSON, tentar ler como texto
+      const text = await response.text()
+      console.error(`❌ Bot retornou resposta não-JSON. Content-Type: ${contentType}`)
+      console.error(`❌ Resposta recebida (primeiros 500 chars): ${text.substring(0, 500)}`)
+      return {
+        sucesso: false,
+        erro: `Bot retornou resposta não-JSON. Status: ${response.status}, Content-Type: ${contentType}`,
+      }
+    }
 
     if (!response.ok) {
-      console.error(`❌ Erro ao enviar aposta para bot: ${data.erro || response.statusText}`)
+      console.error(`❌ Erro ao enviar aposta para bot: HTTP ${response.status} - ${data.erro || response.statusText}`)
       return {
         sucesso: false,
         erro: data.erro || `Erro HTTP ${response.status}`,

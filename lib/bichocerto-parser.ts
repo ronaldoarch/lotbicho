@@ -546,9 +546,15 @@ export function converterParaFormatoSistema(
   
   Object.values(resultados).forEach((extracao) => {
     extracao.premios.forEach((premio) => {
+      // Garantir que milhar sempre tenha 4 dígitos
+      let milharNormalizado = premio.numero || ''
+      if (milharNormalizado.length < 4) {
+        milharNormalizado = milharNormalizado.padStart(4, '0')
+      }
+      
       resultadosFormatados.push({
         position: premio.posicao,
-        milhar: premio.numero,
+        milhar: milharNormalizado,
         grupo: premio.grupo || '', // Garantir que seja string, não undefined
         animal: premio.animal || '', // Garantir que seja string, não undefined
         drawTime: extracao.horario,
@@ -613,9 +619,15 @@ export async function buscarResultadosParaLiquidacao(
     }
     
       extracao.premios.forEach((premio) => {
+        // Garantir que milhar sempre tenha 4 dígitos
+        let milharNormalizado = premio.numero || ''
+        if (milharNormalizado.length < 4) {
+          milharNormalizado = milharNormalizado.padStart(4, '0')
+        }
+        
         resultadosPorHorario[horario].push({
           position: premio.posicao,
-          milhar: premio.numero,
+          milhar: milharNormalizado,
           grupo: premio.grupo || '', // Garantir que seja string
           animal: premio.animal || '', // Garantir que seja string
           drawTime: extracao.horario,

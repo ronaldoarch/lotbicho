@@ -371,6 +371,7 @@ export async function GET(req: NextRequest) {
     const organizados = data?.organizados || {}
     
     console.log(`📦 Dados recebidos: ${Object.keys(organizados).length} extração(ões) encontrada(s)`)
+    console.log(`📊 Estatísticas da API: ${JSON.stringify(data?.estatisticas || {})}`)
     
     // Se não há dados organizados, tentar endpoint alternativo
     if (Object.keys(organizados).length === 0) {
@@ -391,6 +392,7 @@ export async function GET(req: NextRequest) {
     let results: ResultadoItem[] = []
     let totalTabelas = 0
     let totalHorarios = 0
+    let totalResultadosBrutos = 0
     
     Object.entries(organizados).forEach(([tabela, horarios]) => {
       totalTabelas++
@@ -400,7 +402,9 @@ export async function GET(req: NextRequest) {
       
       // Log para debug: mostrar quantos horários cada extração tem
       if (horariosCount > 0) {
-        console.log(`📊 Extração "${tabela}": ${horariosCount} horário(s) - ${Object.keys(horariosObj).join(', ')}`)
+        const totalNesteHorario = Object.values(horariosObj).reduce((sum, arr) => sum + (arr?.length || 0), 0)
+        totalResultadosBrutos += totalNesteHorario
+        console.log(`📊 Extração "${tabela}": ${horariosCount} horário(s) - ${Object.keys(horariosObj).join(', ')} (${totalNesteHorario} resultados)`)
       }
       
       Object.entries(horariosObj).forEach(([horario, lista]) => {
@@ -436,7 +440,7 @@ export async function GET(req: NextRequest) {
       })
     })
     
-    console.log(`📈 Total processado: ${totalTabelas} extrações, ${totalHorarios} horários, ${results.length} resultados`)
+    console.log(`📈 Total processado: ${totalTabelas} extrações, ${totalHorarios} horários, ${totalResultadosBrutos} resultados brutos, ${results.length} resultados processados`)
     console.log(`🔍 Filtros aplicados: dateFilter="${dateFilter || 'nenhum'}", locationFilter="${locationFilter || 'nenhum'}", uf="${uf || 'nenhum'}"`)
 
     // Filtro por data (usa dataExtracao/data_extracao)

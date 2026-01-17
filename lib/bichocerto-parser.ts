@@ -265,6 +265,12 @@ function extrairPremiosDaTabela(tableContent: string): BichoCertoResultado['prem
       continue
     }
     
+    // Ignorar linhas que contêm "SUPER 5" ou outras informações não relacionadas a prêmios
+    const trContentLimpo = limparHTML(trContent)
+    if (trContentLimpo.includes('SUPER 5') || trContentLimpo.includes('SUPER5')) {
+      continue
+    }
+    
     // Normalmente: [posição, emoji?, número, grupo, animal]
     // Tentar extrair número (geralmente na 3ª coluna ou em link/h5)
     let numero: string | null = null
@@ -280,14 +286,29 @@ function extrairPremiosDaTabela(tableContent: string): BichoCertoResultado['prem
     }
     
     // Procurar número em todas as células (geralmente 3ª ou 4ª coluna)
+    // Aceitar números de 3 ou 4 dígitos (ex: "015", "494", "4785")
     for (let i = 0; i < tdMatches.length; i++) {
       const td = tdMatches[i]
       const textoLimpo = limparHTML(td)
       
-      // Tentar encontrar número de 4 dígitos (milhar)
-      const numMatch = textoLimpo.match(/(\d{4})/)
-      if (numMatch) {
-        numero = numMatch[1]
+      // Tentar encontrar número de 3 ou 4 dígitos (milhar)
+      // Priorizar números de 4 dígitos, mas aceitar 3 dígitos também
+      const numMatch4 = textoLimpo.match(/(\d{4})/)
+      const numMatch3 = textoLimpo.match(/(\d{3})/)
+      
+      if (numMatch4) {
+        numero = numMatch4[1]
+      } else if (numMatch3 && !numero) {
+        // Aceitar número de 3 dígitos apenas se não encontrou de 4 dígitos
+        // Mas verificar se não é parte de um número maior ou posição
+        const num3 = numMatch3[1]
+        // Ignorar se for apenas a posição (ex: "7" na primeira coluna)
+        if (i > 0 || primeiraColuna !== num3) {
+          numero = num3.padStart(4, '0') // Pad para 4 dígitos
+        }
+      }
+      
+      if (numero) {
         // Se encontrou número, tentar extrair grupo da próxima célula
         if (i + 1 < tdMatches.length) {
           const grupoTexto = limparHTML(tdMatches[i + 1])
@@ -307,9 +328,16 @@ function extrairPremiosDaTabela(tableContent: string): BichoCertoResultado['prem
       const linkMatch = td.match(/<a[^>]*>([\s\S]*?)<\/a>/i) || td.match(/<h5[^>]*>([\s\S]*?)<\/h5>/i)
       if (linkMatch) {
         const textoLink = limparHTML(linkMatch[1])
-        const numMatchLink = textoLink.match(/(\d{4})/)
-        if (numMatchLink) {
-          numero = numMatchLink[1]
+        const numMatchLink4 = textoLink.match(/(\d{4})/)
+        const numMatchLink3 = textoLink.match(/(\d{3})/)
+        
+        if (numMatchLink4) {
+          numero = numMatchLink4[1]
+        } else if (numMatchLink3 && !numero) {
+          numero = numMatchLink3[1].padStart(4, '0')
+        }
+        
+        if (numero) {
           // Tentar extrair grupo da próxima célula
           if (i + 1 < tdMatches.length) {
             const grupoTexto = limparHTML(tdMatches[i + 1])

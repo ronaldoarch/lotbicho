@@ -233,6 +233,30 @@ export default function BetFlow() {
     }
 
     try {
+      // Mapear nome da modalidade para tipo (definir antes de usar)
+      const modalityMap: Record<string, ModalityType> = {
+        'Grupo': 'GRUPO',
+        'Dupla de Grupo': 'DUPLA_GRUPO',
+        'Terno de Grupo': 'TERNO_GRUPO',
+        'Quadra de Grupo': 'QUADRA_GRUPO',
+        'Dezena': 'DEZENA',
+        'Centena': 'CENTENA',
+        'Milhar': 'MILHAR',
+        'Dezena Invertida': 'DEZENA_INVERTIDA',
+        'Centena Invertida': 'CENTENA_INVERTIDA',
+        'Milhar Invertida': 'MILHAR_INVERTIDA',
+        'Milhar/Centena': 'MILHAR_CENTENA',
+        'Passe vai': 'PASSE',
+        'Passe vai e vem': 'PASSE_VAI_E_VEM',
+      }
+      const modalityType = modalityMap[betData.modalityName] || 'GRUPO'
+      
+      // Usar posição personalizada se estiver marcado, senão usar posição padrão
+      const positionToUse = betData.customPosition && betData.customPositionValue 
+        ? betData.customPositionValue.trim() 
+        : betData.position
+      const { pos_from, pos_to } = parsePosition(positionToUse)
+      
       // Buscar cotação da modalidade do banco (se disponível)
       const modalidadeDoBanco = modalidades.find(m => m.name === betData.modalityName && m.active !== false)
       let odd: number
@@ -244,50 +268,10 @@ export default function BetFlow() {
           odd = parseFloat(rMatch[1])
         } else {
           // Fallback para buscarOdd se não conseguir extrair
-          const modalityMap: Record<string, ModalityType> = {
-            'Grupo': 'GRUPO',
-            'Dupla de Grupo': 'DUPLA_GRUPO',
-            'Terno de Grupo': 'TERNO_GRUPO',
-            'Quadra de Grupo': 'QUADRA_GRUPO',
-            'Dezena': 'DEZENA',
-            'Centena': 'CENTENA',
-            'Milhar': 'MILHAR',
-            'Dezena Invertida': 'DEZENA_INVERTIDA',
-            'Centena Invertida': 'CENTENA_INVERTIDA',
-            'Milhar Invertida': 'MILHAR_INVERTIDA',
-            'Milhar/Centena': 'MILHAR_CENTENA',
-            'Passe vai': 'PASSE',
-            'Passe vai e vem': 'PASSE_VAI_E_VEM',
-          }
-          const modalityType = modalityMap[betData.modalityName] || 'GRUPO'
-          const positionToUse = betData.customPosition && betData.customPositionValue 
-            ? betData.customPositionValue.trim() 
-            : betData.position
-          const { pos_from, pos_to } = parsePosition(positionToUse)
           odd = buscarOdd(modalityType, pos_from, pos_to, betData.modalityName)
         }
       } else {
         // Usar busca padrão se não encontrar no banco
-        const modalityMap: Record<string, ModalityType> = {
-          'Grupo': 'GRUPO',
-          'Dupla de Grupo': 'DUPLA_GRUPO',
-          'Terno de Grupo': 'TERNO_GRUPO',
-          'Quadra de Grupo': 'QUADRA_GRUPO',
-          'Dezena': 'DEZENA',
-          'Centena': 'CENTENA',
-          'Milhar': 'MILHAR',
-          'Dezena Invertida': 'DEZENA_INVERTIDA',
-          'Centena Invertida': 'CENTENA_INVERTIDA',
-          'Milhar Invertida': 'MILHAR_INVERTIDA',
-          'Milhar/Centena': 'MILHAR_CENTENA',
-          'Passe vai': 'PASSE',
-          'Passe vai e vem': 'PASSE_VAI_E_VEM',
-        }
-        const modalityType = modalityMap[betData.modalityName] || 'GRUPO'
-        const positionToUse = betData.customPosition && betData.customPositionValue 
-          ? betData.customPositionValue.trim() 
-          : betData.position
-        const { pos_from, pos_to } = parsePosition(positionToUse)
         odd = buscarOdd(modalityType, pos_from, pos_to, betData.modalityName)
       }
 

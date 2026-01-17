@@ -421,31 +421,31 @@ function extrairPremiosDaTabela(tableContent: string): BichoCertoResultado['prem
           continue
         }
         
-        // Tentar encontrar número de 3 dígitos (mas verificar se não é grupo)
+        // Tentar encontrar número de 3 dígitos
+        // IMPORTANTE: Números de 3 dígitos são SEMPRE milhares (ex: "022", "494", "015", "953")
+        // Grupos têm apenas 1-2 dígitos, então qualquer número de 3 dígitos é milhar
         const numMatch3 = textoLimpo.match(/\b(\d{3})\b/)
         if (numMatch3) {
-          const num3 = parseInt(numMatch3[1], 10)
-          // Se o número de 3 dígitos for maior que 25, provavelmente é um milhar (ex: "494", "015")
-          // Se for menor ou igual a 25, pode ser um grupo, então ignorar
-          if (num3 > 25) {
-            numero = numMatch3[1].padStart(4, '0') // Pad para 4 dígitos
-            // Tentar extrair grupo da próxima célula
-            if (i + 1 < tdMatches.length) {
-              const grupoTexto = limparHTML(tdMatches[i + 1])
-              const grupoMatch = grupoTexto.match(/\b(\d{1,2})\b/)
-              if (grupoMatch) {
-                const grupoNum = parseInt(grupoMatch[1], 10)
-                if (grupoNum >= 1 && grupoNum <= 25) {
-                  grupo = grupoMatch[1].padStart(2, '0')
-                }
+          // Aceitar TODOS os números de 3 dígitos como milhares
+          numero = numMatch3[1].padStart(4, '0') // Pad para 4 dígitos (ex: "022" -> "0022")
+          console.log(`   🔧 Linha ${linhaIndex}: Número de 3 dígitos encontrado: "${numMatch3[1]}" -> "${numero}"`)
+          
+          // Tentar extrair grupo da próxima célula
+          if (i + 1 < tdMatches.length) {
+            const grupoTexto = limparHTML(tdMatches[i + 1])
+            const grupoMatch = grupoTexto.match(/\b(\d{1,2})\b/)
+            if (grupoMatch) {
+              const grupoNum = parseInt(grupoMatch[1], 10)
+              if (grupoNum >= 1 && grupoNum <= 25) {
+                grupo = grupoMatch[1].padStart(2, '0')
               }
             }
-            // Tentar extrair animal da última célula
-            if (tdMatches.length > i + 2) {
-              animal = limparHTML(tdMatches[tdMatches.length - 1]).trim()
-            }
-            break
           }
+          // Tentar extrair animal da última célula
+          if (tdMatches.length > i + 2) {
+            animal = limparHTML(tdMatches[tdMatches.length - 1]).trim()
+          }
+          break
         }
       }
     }
@@ -489,13 +489,20 @@ function extrairPremiosDaTabela(tableContent: string): BichoCertoResultado['prem
       }
       
       // Validar que é um número válido (não pode ser grupo ou posição)
+      // IMPORTANTE: Números de 3+ dígitos são SEMPRE milhares, mesmo que comecem com zero
+      // Apenas números de 1-2 dígitos podem ser grupos
       if (numero) {
-        const numValue = parseInt(numero, 10)
-        // Se o número normalizado for menor ou igual a 25, pode ser um grupo, não um milhar
-        // Mas se já foi extraído como número de 3-4 dígitos, provavelmente é milhar mesmo
-        if (numValue <= 25 && numeroOriginal.length <= 2) {
-          console.log(`   ⚠️ Linha ${linhaIndex} (${posicao}): Número "${numero}" pode ser grupo, não milhar. Ignorando.`)
-          numero = null
+        // Se o número original tinha 3 ou mais dígitos, é definitivamente um milhar
+        if (numeroOriginal.length >= 3) {
+          // Números de 3+ dígitos são sempre milhares, aceitar
+          // Exemplos: "022" -> "0022", "494" -> "0494", "953" -> "0953"
+        } else {
+          // Números de 1-2 dígitos podem ser grupos, validar
+          const numValue = parseInt(numero, 10)
+          if (numValue <= 25) {
+            console.log(`   ⚠️ Linha ${linhaIndex} (${posicao}): Número "${numero}" (${numeroOriginal.length} dígitos) pode ser grupo, não milhar. Ignorando.`)
+            numero = null
+          }
         }
       }
       

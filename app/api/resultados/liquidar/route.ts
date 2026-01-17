@@ -12,6 +12,7 @@ import { ANIMALS } from '@/data/animals'
 import { ResultadoItem } from '@/types/resultados'
 import { extracoes } from '@/data/extracoes'
 import { getHorarioRealApuracao, temSorteioNoDia } from '@/data/horarios-reais-apuracao'
+import { buscarResultadosParaLiquidacao, mapearCodigoLoteria, LOTERIA_CODE_MAP } from '@/lib/bichocerto-parser'
 
 // Configurar timeout maior para operações longas
 export const maxDuration = 120 // 120 segundos (2 minutos) para processar muitas apostas
@@ -311,90 +312,138 @@ export async function POST(request: NextRequest) {
       console.log(`   - Modalidade: ${aposta.modalidade || 'N/A'}`)
     })
 
-    // Buscar resultados usando a API interna (que usa /api/resultados/organizados)
-    // Isso é mais rápido e confiável do que chamar a API externa diretamente
-    let resultadosData
+    // NOVA IMPLEMENTAÇÃO: Buscar resultados diretamente do bichocerto.com por loteria/horário
+    // Isso garante correspondência exata por horário para liquidação
+    const USAR_BICHOCERTO_DIRETO = process.env.USAR_BICHOCERTO_DIRETO !== 'false'
+    const BICHOCERTO_PHPSESSID = process.env.BICHOCERTO_PHPSESSID
+    
+    let resultados: ResultadoItem[] = []
     let lastError: Error | null = null
     
-    try {
-      console.log(`🔄 Buscando resultados via API interna...`)
+    if (USAR_BICHOCERTO_DIRETO) {
+      console.log(`🌐 Buscando resultados diretamente do bichocerto.com para liquidação`)
       
-      // Usar a API interna que já está funcionando na página de resultados
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
-                     (request.headers.get('host') ? `https://${request.headers.get('host')}` : 'http://localhost:3000')
-      
-      // Buscar TODOS os resultados sem filtros de data/localização
-      // A liquidação precisa de todos os resultados disponíveis para poder liquidar apostas de qualquer extração/horário
-      const resultadosResponse = await fetch(
-        `${baseUrl}/api/resultados`,
-        { 
-          cache: 'no-store',
-          signal: AbortSignal.timeout(30000) // 30 segundos timeout
-        }
-      )
-
-      if (!resultadosResponse.ok) {
-        throw new Error(`Erro ao buscar resultados: ${resultadosResponse.status}`)
-      }
-      
-      resultadosData = await resultadosResponse.json()
-      console.log(`✅ Resultados obtidos com sucesso via API interna`)
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error))
-      console.error(`❌ Erro ao buscar resultados via API interna:`, error)
-      
-      // Fallback: tentar API externa diretamente se a interna falhar
-      console.log(`🔄 Tentando API externa como fallback...`)
       try {
-        const RAW_SOURCE = process.env.BICHO_CERTO_API ?? 'https://okgkgswwkk8ows0csow0c4gg.agenciamidas.com/api/resultados'
-        const SOURCE_ROOT = RAW_SOURCE.replace(/\/api\/resultados$/, '')
+        // Agrupar apostas por loteria/data para buscar resultados eficientemente
+        const apostasPorLoteriaData = new Map<string, typeof apostasPendentes>()
         
-        const fallbackResponse = await fetch(
-          `${SOURCE_ROOT}/api/resultados/organizados`,
-          { 
-            cache: 'no-store',
-            signal: AbortSignal.timeout(30000)
+        apostasPendentes.forEach((aposta) => {
+          const dataStr = aposta.dataConcurso?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0]
+          const codigoLoteria = mapearCodigoLoteria(aposta.loteria)
+          
+          if (codigoLoteria) {
+            const key = `${codigoLoteria}|${dataStr}`
+            if (!apostasPorLoteriaData.has(key)) {
+              apostasPorLoteriaData.set(key, [])
+            }
+            apostasPorLoteriaData.get(key)!.push(aposta)
           }
-        )
+        })
         
-        if (fallbackResponse.ok) {
-          const fallbackData = await fallbackResponse.json()
-          // Converter formato organizados para formato esperado
-          const organizados = fallbackData?.organizados || {}
-          let results: any[] = []
-          Object.entries(organizados).forEach(([tabela, horarios]) => {
-            Object.entries(horarios as Record<string, any[]>).forEach(([horario, lista]) => {
-              const arr = (lista || []).map((item: any, idx: number) => ({
-                position: item.colocacao || `${item.posicao || idx + 1}°`,
-                milhar: item.numero || item.milhar || '',
-                loteria: tabela,
-                horario,
-                date: item.data_extracao || item.dataExtracao || item.data || item.date || '',
-                dataExtracao: item.data_extracao || item.dataExtracao || item.data || item.date || '',
-              }))
-              results = results.concat(arr)
+        console.log(`📊 Buscando resultados para ${apostasPorLoteriaData.size} combinação(ões) de loteria/data`)
+        
+        // Buscar resultados para cada combinação loteria/data
+        const promessasResultados = Array.from(apostasPorLoteriaData.entries()).map(async ([key, apostas]) => {
+          const [codigoLoteria, dataStr] = key.split('|')
+          
+          console.log(`🔍 Buscando resultados: ${codigoLoteria} - ${dataStr} (${apostas.length} aposta(s))`)
+          
+          const resultado = await buscarResultadosParaLiquidacao(codigoLoteria, dataStr, BICHOCERTO_PHPSESSID)
+          
+          if (resultado.erro) {
+            console.log(`   ⚠️ Erro ao buscar ${codigoLoteria} ${dataStr}: ${resultado.erro}`)
+            return []
+          }
+          
+          // Converter resultados por horário para array plano
+          const resultadosArray: ResultadoItem[] = []
+          Object.entries(resultado.resultadosPorHorario).forEach(([horario, premios]) => {
+            premios.forEach((premio) => {
+              resultadosArray.push({
+                ...premio,
+                estado: LOTERIA_CODE_MAP[codigoLoteria]?.estado,
+                location: LOTERIA_CODE_MAP[codigoLoteria]?.estado 
+                  ? `Estado ${LOTERIA_CODE_MAP[codigoLoteria]?.estado}` 
+                  : 'Nacional',
+              } as ResultadoItem)
             })
           })
-          resultadosData = { results }
-          console.log(`✅ Resultados obtidos via API externa (fallback)`)
-        } else {
-          throw new Error(`Fallback também falhou: ${fallbackResponse.status}`)
+          
+          console.log(`   ✅ ${codigoLoteria} ${dataStr}: ${Object.keys(resultado.resultadosPorHorario).length} horário(s), ${resultadosArray.length} resultado(s)`)
+          
+          return resultadosArray
+        })
+        
+        const resultadosArrays = await Promise.all(promessasResultados)
+        resultados = resultadosArrays.flat()
+        
+        console.log(`📊 Total de resultados obtidos para liquidação: ${resultados.length}`)
+        
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error))
+        console.error(`❌ Erro ao buscar resultados do bichocerto.com:`, error)
+        
+        // Fallback para API interna
+        console.log(`🔄 Tentando API interna como fallback...`)
+        try {
+          const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
+                         (request.headers.get('host') ? `https://${request.headers.get('host')}` : 'http://localhost:3000')
+          
+          const resultadosResponse = await fetch(`${baseUrl}/api/resultados`, { 
+            cache: 'no-store',
+            signal: AbortSignal.timeout(30000)
+          })
+          
+          if (resultadosResponse.ok) {
+            const resultadosData = await resultadosResponse.json()
+            resultados = resultadosData.results || resultadosData.resultados || []
+            console.log(`✅ Resultados obtidos via API interna (fallback): ${resultados.length}`)
+          } else {
+            throw new Error(`API interna também falhou: ${resultadosResponse.status}`)
+          }
+        } catch (fallbackError) {
+          console.error(`❌ Fallback também falhou:`, fallbackError)
+          return NextResponse.json({
+            error: 'Erro ao buscar resultados oficiais',
+            message: `Erro ao buscar resultados: ${lastError?.message || 'Erro desconhecido'}`,
+            processadas: 0,
+            liquidadas: 0,
+            premioTotal: 0,
+          }, { status: 504 })
         }
-      } catch (fallbackError) {
-        console.error(`❌ Fallback também falhou:`, fallbackError)
+      }
+    } else {
+      // FALLBACK: Usar API interna/antiga
+      console.log(`🔄 Buscando resultados via API interna...`)
+      
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
+                       (request.headers.get('host') ? `https://${request.headers.get('host')}` : 'http://localhost:3000')
+        
+        const resultadosResponse = await fetch(`${baseUrl}/api/resultados`, { 
+          cache: 'no-store',
+          signal: AbortSignal.timeout(30000)
+        })
+        
+        if (!resultadosResponse.ok) {
+          throw new Error(`Erro ao buscar resultados: ${resultadosResponse.status}`)
+        }
+        
+        const resultadosData = await resultadosResponse.json()
+        resultados = resultadosData.results || resultadosData.resultados || []
+        console.log(`✅ Resultados obtidos via API interna: ${resultados.length}`)
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error))
+        console.error(`❌ Erro ao buscar resultados:`, error)
         return NextResponse.json({
           error: 'Erro ao buscar resultados oficiais',
-          message: lastError?.name === 'TimeoutError' 
-            ? 'A API de resultados demorou muito para responder.'
-            : `Erro ao buscar resultados: ${lastError?.message || 'Erro desconhecido'}`,
+          message: `Erro ao buscar resultados: ${lastError?.message || 'Erro desconhecido'}`,
           processadas: 0,
           liquidadas: 0,
           premioTotal: 0,
         }, { status: 504 })
       }
     }
-
-    const resultados: ResultadoItem[] = resultadosData.results || resultadosData.resultados || []
 
     console.log(`📊 Total de resultados oficiais encontrados: ${resultados.length}`)
     if (resultados.length > 0) {
@@ -823,7 +872,9 @@ export async function POST(request: NextRequest) {
         console.log(`   - Resultados antes do filtro: ${resultados.length}`)
         console.log(`   - Resultados após filtro: ${resultadosFiltrados.length}`)
         
-        // Verificar se já passou o horário de apuração
+        // Verificar se já passou o horário de apuração REAL (quando o resultado deve estar disponível)
+        // IMPORTANTE: Só podemos liquidar quando o resultado aparecer na API (aba de resultados)
+        // O resultado demora cerca de 2 minutos ou mais para chegar após o fechamento
         const extracaoId = aposta.loteria ? Number(aposta.loteria) : null
         const horarioAposta = aposta.horario && aposta.horario !== 'null' ? aposta.horario : null
         // Usar loteriaNome já declarado acima (linha 435), não redeclarar
@@ -843,9 +894,33 @@ export async function POST(request: NextRequest) {
               }) || extracoesComMesmoId[0]
             }
           }
-          const horarioApuracao = extracao?.closeTime || 'N/A'
-          console.log(`   ⏰ Ainda não passou o horário de apuração (${horarioApuracao})`)
-          console.log(`   ⏸️  Pulando aposta ${aposta.id} - aguardando apuração`)
+          
+          // Buscar horário real de apuração para mostrar no log
+          let horarioApuracaoReal = 'N/A'
+          if (extracao) {
+            try {
+              const { getHorarioRealApuracao } = await import('@/data/horarios-reais-apuracao')
+              const horarioReal = getHorarioRealApuracao(extracao.name, extracao.time)
+              if (horarioReal) {
+                horarioApuracaoReal = `${horarioReal.startTimeReal} - ${horarioReal.closeTimeReal} (real)`
+              } else {
+                horarioApuracaoReal = extracao.closeTime || 'N/A'
+              }
+            } catch (error) {
+              horarioApuracaoReal = extracao.closeTime || 'N/A'
+            }
+          }
+          
+          console.log(`   ⏰ Ainda não passou o horário de apuração (${horarioApuracaoReal})`)
+          console.log(`   ⏸️  Pulando aposta ${aposta.id} - aguardando resultado aparecer na API`)
+          continue
+        }
+        
+        // VALIDAÇÃO ADICIONAL: Verificar se o resultado realmente apareceu na API
+        // Se não há resultados filtrados, significa que o resultado ainda não chegou na API
+        if (resultadosFiltrados.length === 0) {
+          console.log(`   ⏸️  Resultado ainda não apareceu na API para aposta ${aposta.id}`)
+          console.log(`   💡 Aguardando resultado aparecer na aba de resultados (pode demorar 2+ minutos após fechamento)`)
           continue
         }
         
@@ -994,12 +1069,79 @@ export async function POST(request: NextRequest) {
         })
         console.log(`   ✅ Usando horário selecionado: "${horarioSelecionado}" com ${resultadosDoHorario.length} resultado(s)`)
         
-        // VALIDAÇÃO CRÍTICA: Verificar se o resultado está completo antes de liquidar
+        // VALIDAÇÃO CRÍTICA 1: Verificar se o resultado está completo antes de liquidar
         // O resultado deve ter pelo menos 7 posições (1º ao 7º) para ser considerado válido
         if (resultadosDoHorario.length < 7) {
           console.log(`   ⚠️ Resultado incompleto: apenas ${resultadosDoHorario.length} posição(ões) encontrada(s)`)
           console.log(`   ⏸️  Aguardando resultado completo (necessário: 7 posições) para aposta ${aposta.id}`)
           continue
+        }
+        
+        // VALIDAÇÃO CRÍTICA 2: Verificar se o horário do resultado corresponde EXATAMENTE ao horário da aposta
+        // Não podemos liquidar com horários diferentes - só com o horário correto
+        if (horarioAposta && horarioAposta !== 'null' && horarioSelecionado) {
+          // Normalizar ambos os horários para comparação
+          const normalizarHorario = (h: string) => h.replace(/[h:]/g, ':').trim().toLowerCase()
+          const horarioApostaNormalizado = normalizarHorario(horarioAposta)
+          const horarioSelecionadoNormalizado = normalizarHorario(horarioSelecionado)
+          
+          // Verificar match exato ou por início (ex: "20:15" matcha "20:15:00")
+          const matchExato = horarioApostaNormalizado === horarioSelecionadoNormalizado
+          const matchPorInicio = horarioSelecionadoNormalizado.startsWith(horarioApostaNormalizado) || 
+                                 horarioApostaNormalizado.startsWith(horarioSelecionadoNormalizado)
+          
+          // Se não houver match, buscar horário real de apuração para validar
+          let horarioRealParaValidar: string | null = null
+          if (extracaoParaHorarioNovo) {
+            try {
+              const { getHorarioRealApuracao } = await import('@/data/horarios-reais-apuracao')
+              const horarioReal = getHorarioRealApuracao(extracaoParaHorarioNovo.name, extracaoParaHorarioNovo.time)
+              if (horarioReal) {
+                // O resultado deve estar dentro do intervalo de apuração (startTimeReal até closeTimeReal)
+                horarioRealParaValidar = horarioReal.closeTimeReal
+                console.log(`   📅 Horário real de apuração: ${horarioReal.startTimeReal} - ${horarioReal.closeTimeReal}`)
+              }
+            } catch (error) {
+              // Ignorar erro
+            }
+          }
+          
+          // Se não houver match exato ou por início, verificar se está dentro do intervalo de apuração
+          if (!matchExato && !matchPorInicio) {
+            // Tentar extrair minutos de ambos os horários
+            const extrairMinutos = (h: string): number => {
+              const match = h.match(/(\d{1,2}):?(\d{2})/)
+              if (match) {
+                const horas = parseInt(match[1], 10)
+                const minutos = parseInt(match[2], 10)
+                return horas * 60 + minutos
+              }
+              return -1
+            }
+            
+            const minutosAposta = extrairMinutos(horarioApostaNormalizado)
+            const minutosSelecionado = extrairMinutos(horarioSelecionadoNormalizado)
+            
+            // Se a diferença for maior que 15 minutos, não é o mesmo horário
+            if (minutosAposta !== -1 && minutosSelecionado !== -1) {
+              const diferencaMinutos = Math.abs(minutosAposta - minutosSelecionado)
+              
+              if (diferencaMinutos > 15) {
+                console.log(`   ❌ Horário do resultado não corresponde ao horário da aposta`)
+                console.log(`      Horário da aposta: "${horarioAposta}"`)
+                console.log(`      Horário do resultado: "${horarioSelecionado}"`)
+                console.log(`      Diferença: ${diferencaMinutos} minutos`)
+                console.log(`   ⏸️  Não é possível liquidar com horário diferente - aguardando resultado correto`)
+                continue
+              } else {
+                console.log(`   ⚠️ Diferença de horário pequena (${diferencaMinutos} minutos) - aceitando`)
+              }
+            } else {
+              console.log(`   ⚠️ Não foi possível comparar horários numericamente - aceitando`)
+            }
+          } else {
+            console.log(`   ✅ Horário do resultado corresponde ao horário da aposta (${matchExato ? 'exato' : 'por início'})`)
+          }
         }
         
         // Converter resultados para formato do motor de regras

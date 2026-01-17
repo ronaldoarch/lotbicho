@@ -347,40 +347,8 @@ export async function POST(request: Request) {
         },
       })
 
-      // Se não for aposta instantânea e bot estiver configurado, enviar para bot externo
-      // Fazer envio assíncrono para não bloquear resposta da criação da aposta
-      if (!isInstant && process.env.BOT_API_URL && process.env.USAR_BOT_LIQUIDACAO === 'true') {
-        // Enviar para bot de forma assíncrona (não aguardar)
-        Promise.resolve().then(async () => {
-          try {
-            const { enviarApostaParaBot, converterApostaParaBot } = await import('@/lib/bot-integration')
-            const apostaBot = converterApostaParaBot(created)
-            const resultadoBot = await enviarApostaParaBot(apostaBot)
-            
-            if (resultadoBot.sucesso && resultadoBot.aposta_id_bot) {
-              // Atualizar aposta com ID do bot (fora da transação original)
-              await prisma.aposta.update({
-                where: { id: created.id },
-                data: {
-                  detalhes: {
-                    ...(created.detalhes as any || {}),
-                    aposta_id_bot: resultadoBot.aposta_id_bot,
-                    enviado_para_bot: true,
-                  },
-                },
-              })
-              console.log(`✅ Aposta ${created.id} enviada para bot externo (ID bot: ${resultadoBot.aposta_id_bot})`)
-            } else {
-              console.warn(`⚠️ Falha ao enviar aposta ${created.id} para bot: ${resultadoBot.erro || 'Erro desconhecido'}`)
-            }
-          } catch (error) {
-            // Não falhar criação da aposta se envio para bot falhar
-            console.error(`⚠️ Erro ao enviar aposta ${created.id} para bot:`, error instanceof Error ? error.message : String(error))
-          }
-        }).catch((error) => {
-          console.error(`⚠️ Erro na promise de envio para bot:`, error)
-        })
-      }
+      // Bot desativado - liquidação será feita apenas quando resultado aparecer na API
+      // A liquidação será feita pelo cron job que verifica resultados na aba de resultados
 
       return { ...created, resultadoInstantaneo, premioTotal }
     })

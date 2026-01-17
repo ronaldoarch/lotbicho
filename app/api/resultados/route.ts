@@ -3,6 +3,11 @@ import { ResultadosResponse, ResultadoItem } from '@/types/resultados'
 import { toIsoDate } from '@/lib/resultados-helpers'
 import { extracoes } from '@/data/extracoes'
 import { getHorarioRealApuracao } from '@/data/horarios-reais-apuracao'
+import {
+  buscarResultadosBichoCerto,
+  converterParaFormatoSistema,
+  LOTERIA_CODE_MAP,
+} from '@/lib/bichocerto-parser'
 
 /**
  * Normaliza o horário do resultado para o horário correto de fechamento da extração
@@ -95,6 +100,12 @@ function normalizarHorarioResultado(loteriaNome: string, horarioResultado: strin
   return horarioResultado
 }
 
+// NOVA IMPLEMENTAÇÃO: Usar endpoints diretos do bichocerto.com
+// Desativada a API antiga - agora usamos parsing HTML direto
+const USAR_BICHOCERTO_DIRETO = process.env.USAR_BICHOCERTO_DIRETO !== 'false' // Default: true
+const BICHOCERTO_PHPSESSID = process.env.BICHOCERTO_PHPSESSID // Opcional: para acesso histórico
+
+// API antiga (fallback se necessário)
 const RAW_SOURCE =
   process.env.BICHO_CERTO_API ?? 'https://okgkgswwkk8ows0csow0c4gg.agenciamidas.com/api/resultados'
 const SOURCE_ROOT = RAW_SOURCE.replace(/\/api\/resultados$/, '')
@@ -349,9 +360,124 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Nova fonte principal: resultados organizados
-    console.log(`🔗 Buscando resultados de: ${SOURCE_ROOT}/api/resultados/organizados`)
-    const res = await fetchWithTimeout(`${SOURCE_ROOT}/api/resultados/organizados`, 30000) // 30 segundos
+    // NOVA IMPLEMENTAÇÃO: Usar endpoints diretos do bichocerto.com
+    if (USAR_BICHOCERTO_DIRETO) {
+      console.log(`🌐 Usando endpoints diretos do bichocerto.com`)
+      
+      const dataParaBuscar = dateFilter || new Date().toISOString().split('T')[0]
+      const resultadosCombinados: ResultadoItem[] = []
+      
+      // Buscar resultados de todas as loterias principais
+      const loteriasParaBuscar = ['ln', 'sp', 'ba', 'pb', 'bs', 'lce', 'lk', 'fd']
+      
+      console.log(`📅 Buscando resultados para data: ${dataParaBuscar}`)
+      
+      // Buscar resultados de cada loteria em paralelo
+      const promessas = loteriasParaBuscar.map(async (codigo) => {
+        try {
+          console.log(`🔍 Buscando resultados de ${codigo} (${LOTERIA_CODE_MAP[codigo]?.nome || codigo})...`)
+          
+          const resultado = await buscarResultadosBichoCerto(
+            codigo,
+            dataParaBuscar,
+            BICHOCERTO_PHPSESSID
+          )
+          
+          if (resultado.erro) {
+            console.log(`   ⚠️ Erro ao buscar ${codigo}: ${resultado.erro}`)
+            return []
+          }
+          
+          const formatados = converterParaFormatoSistema(resultado.dados, codigo, dataParaBuscar)
+          console.log(`   ✅ ${codigo}: ${Object.keys(resultado.dados).length} extração(ões), ${formatados.length} resultado(s)`)
+          
+          return formatados
+        } catch (error) {
+          console.error(`   ❌ Erro ao buscar ${codigo}:`, error)
+          return []
+        }
+      })
+      
+      const resultadosArrays = await Promise.all(promessas)
+      resultadosArrays.forEach((arr) => {
+        resultadosCombinados.push(...arr)
+      })
+      
+      console.log(`📊 Total combinado: ${resultadosCombinados.length} resultados de ${loteriasParaBuscar.length} loterias`)
+      
+      // Processar resultados combinados
+      let results: ResultadoItem[] = resultadosCombinados
+      
+      // VALIDAÇÃO DE SEGURANÇA: Garantir que todos os resultados correspondem à data solicitada
+      // (mesmo que já tenham sido buscados pela data específica, validar novamente)
+      if (dateFilter) {
+        const antesFiltroData = results.length
+        results = results.filter((r) => matchesDateFilter(r.dataExtracao || r.date, dateFilter))
+        console.log(`📅 Validação de data "${dateFilter}": ${results.length} resultados (antes: ${antesFiltroData})`)
+      } else {
+        console.log(`📅 Sem filtro de data: mantendo todos os ${results.length} resultados`)
+      }
+      
+      // Aplicar filtros de localização se necessário
+      // IMPORTANTE: Se não há filtro, retornar TODOS os resultados (incluindo Nacional)
+      if (uf) {
+        // Filtrar por UF específica
+        results = results.filter((r) => (r.estado || '').toUpperCase() === uf)
+        console.log(`📍 Após filtro de UF "${uf}": ${results.length} resultados`)
+      } else if (locationFilter) {
+        // Filtrar por nome de localização (ex: "Nacional", "Rio de Janeiro")
+        const lf = normalizeText(locationFilter)
+        
+        // Se filtro é "Nacional" ou "Brasil", incluir resultados BR
+        if (lf.includes('nacional') || lf.includes('brasil') || lf.includes('federal') || lf.includes('para todos')) {
+          results = results.filter((r) => {
+            const estado = (r.estado || '').toUpperCase()
+            const location = normalizeText(r.location || '')
+            return estado === 'BR' || location.includes('nacional') || location.includes('brasil') || location.includes('federal')
+          })
+          console.log(`📍 Após filtro de localização "${locationFilter}" (Nacional): ${results.length} resultados`)
+        } else {
+          // Filtro normal por localização
+          results = results.filter((r) => {
+            const location = normalizeText(r.location || '')
+            const estado = normalizeText(r.estado || '')
+            return location.includes(lf) || estado.includes(lf)
+          })
+          console.log(`📍 Após filtro de localização "${locationFilter}": ${results.length} resultados`)
+        }
+      } else {
+        // SEM FILTRO: Retornar TODOS os resultados (incluindo Nacional)
+        console.log(`📍 Sem filtro de localização: mantendo todos os ${results.length} resultados`)
+      }
+      
+      // Agrupar e ordenar
+      const antesAgrupamento = results.length
+      const grouped: Record<string, ResultadoItem[]> = {}
+      results.forEach((r) => {
+        const key = `${r.loteria || ''}|${r.drawTime || ''}|${r.date || r.dataExtracao || ''}`
+        grouped[key] = grouped[key] || []
+        grouped[key].push(r)
+      })
+      
+      console.log(`📦 Agrupamento: ${antesAgrupamento} resultados → ${Object.keys(grouped).length} grupos únicos`)
+      
+      results = Object.values(grouped)
+        .map((arr) => orderByPosition(arr).slice(0, 7))
+        .flat()
+      
+      console.log(`✂️  Após limitar a 7 posições por grupo: ${results.length} resultados`)
+      
+      const payload: ResultadosResponse = {
+        results,
+        updatedAt: new Date().toISOString(),
+      }
+      
+      return NextResponse.json(payload, { status: 200, headers: { 'Cache-Control': 'no-cache' } })
+    }
+    
+    // FALLBACK: API antiga (se USAR_BICHOCERTO_DIRETO = false)
+    console.log(`🔗 Usando API antiga: ${SOURCE_ROOT}/api/resultados/organizados`)
+    const res = await fetchWithTimeout(`${SOURCE_ROOT}/api/resultados/organizados`, 30000)
     
     if (!res.ok) {
       const errorText = await res.text().catch(() => 'Erro desconhecido')
@@ -381,8 +507,6 @@ export async function GET(req: NextRequest) {
         if (resAlt.ok) {
           const dataAlt = await resAlt.json()
           console.log(`📦 Endpoint alternativo retornou: ${Array.isArray(dataAlt) ? dataAlt.length : 'dados'} resultados`)
-          // Se o endpoint alternativo retornar dados, processar aqui
-          // Por enquanto, apenas logar
         }
       } catch (altError) {
         console.error(`❌ Erro ao tentar endpoint alternativo:`, altError)
@@ -404,7 +528,20 @@ export async function GET(req: NextRequest) {
       if (horariosCount > 0) {
         const totalNesteHorario = Object.values(horariosObj).reduce((sum, arr) => sum + (arr?.length || 0), 0)
         totalResultadosBrutos += totalNesteHorario
-        console.log(`📊 Extração "${tabela}": ${horariosCount} horário(s) - ${Object.keys(horariosObj).join(', ')} (${totalNesteHorario} resultados)`)
+        
+        // Log especial para Nacional para debug
+        const tabelaLower = tabela.toLowerCase()
+        if (tabelaLower.includes('nacional') || tabelaLower.includes('federal') || tabelaLower.includes('para todos')) {
+          console.log(`🇧🇷 EXTRAÇÃO NACIONAL ENCONTRADA: "${tabela}" - ${horariosCount} horário(s) - ${Object.keys(horariosObj).join(', ')} (${totalNesteHorario} resultados)`)
+        } else {
+          console.log(`📊 Extração "${tabela}": ${horariosCount} horário(s) - ${Object.keys(horariosObj).join(', ')} (${totalNesteHorario} resultados)`)
+        }
+      } else {
+        // Log também quando não há horários (pode indicar problema)
+        const tabelaLower = tabela.toLowerCase()
+        if (tabelaLower.includes('nacional') || tabelaLower.includes('federal') || tabelaLower.includes('para todos')) {
+          console.log(`⚠️ EXTRAÇÃO NACIONAL SEM HORÁRIOS: "${tabela}" - sem resultados disponíveis`)
+        }
       }
       
       Object.entries(horariosObj).forEach(([horario, lista]) => {
@@ -412,10 +549,29 @@ export async function GET(req: NextRequest) {
         const horarioNormalizado = normalizarHorarioResultado(tabela, horario)
         
         const arr = (lista || []).map((item: any, idx: number) => {
-          const estado =
-            item.estado || inferUfFromName(item.estado) || inferUfFromName(tabela) || inferUfFromName(item.local)
+          // Melhorar inferência de estado para Nacional
+          let estado = item.estado || inferUfFromName(item.estado) || inferUfFromName(tabela) || inferUfFromName(item.local)
+          
+          // Se a tabela contém "nacional", "federal" ou "para todos", forçar BR
+          const tabelaLower = tabela.toLowerCase()
+          if (tabelaLower.includes('nacional') || tabelaLower.includes('federal') || tabelaLower.includes('para todos')) {
+            estado = 'BR'
+          }
+          
+          // Se o estado inferido não for BR mas a tabela indica Nacional, usar BR
+          if (estado && estado !== 'BR' && (tabelaLower.includes('nacional') || tabelaLower.includes('federal'))) {
+            console.log(`   🔄 Corrigindo estado de "${estado}" para "BR" para extração "${tabela}"`)
+            estado = 'BR'
+          }
+          
           const locationResolved = UF_NAME_MAP[estado || ''] || tabela || item.local || ''
           const dateValue = item.data_extracao || item.dataExtracao || item.data || item.date || ''
+          
+          // Log especial para Nacional
+          if (idx === 0 && (tabelaLower.includes('nacional') || tabelaLower.includes('federal') || estado === 'BR')) {
+            console.log(`   🇧🇷 Processando resultado Nacional: tabela="${tabela}", estado="${estado}", location="${locationResolved}"`)
+          }
+          
           return {
             position: item.colocacao || `${item.posicao || idx + 1}°`,
             posicao:

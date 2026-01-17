@@ -30,7 +30,7 @@ RESPONSE=$(curl -s -X POST "$API_URL/api/resultados/liquidar" \
   -H "Content-Type: application/json" \
   -d '{"usarMonitor": true}' \
   -w "\nHTTP_CODE:%{http_code}" \
-  --max-time 60)
+  --max-time 120)
 
 # Extrair código HTTP e corpo da resposta
 HTTP_CODE=$(echo "$RESPONSE" | grep -oP 'HTTP_CODE:\K\d+' || echo "000")

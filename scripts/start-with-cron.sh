@@ -11,4 +11,9 @@ elif command -v cron &> /dev/null; then
 fi
 
 # Executar comando original (start da aplicação Next.js)
-exec "$@"
+# Se não passar argumentos, usa npm start como padrão
+if [ $# -eq 0 ]; then
+  exec npm start
+else
+  exec "$@"
+fi

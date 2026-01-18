@@ -3,7 +3,7 @@
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import BottomNav from '@/components/BottomNav'
-import BetFlow from '@/components/BetFlow'
+import BetFlowWrapper from '@/components/BetFlowWrapper'
 import PromotionalBanner from '@/components/PromotionalBanner'
 
 export default function ApostarPage() {
@@ -27,7 +27,7 @@ export default function ApostarPage() {
 
           {/* Content */}
           <div className="rounded-xl bg-white p-4 md:p-6 lg:p-8">
-            <BetFlow />
+            <BetFlowWrapper />
           </div>
         </div>
       </main>

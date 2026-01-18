@@ -776,29 +776,30 @@ export async function POST(request: NextRequest) {
                 const horarioExtracao = horarioParaBuscar.trim()
                 const horarioReal = getHorarioRealApuracao(loteriaNome, horarioExtracao)
               
-              if (horarioReal) {
-                // Adicionar horário inicial e final de apuração para busca mais ampla
-                horarioParaFiltrar.push(horarioReal.startTimeReal)
-                horarioParaFiltrar.push(horarioReal.closeTimeReal)
-                
-                // Também adicionar variações do horário (ex: "17:00", "17h", "17")
-                const [horaInicial] = horarioReal.startTimeReal.split(':')
-                const [horaFinal] = horarioReal.closeTimeReal.split(':')
-                horarioParaFiltrar.push(`${horaInicial}:00`, `${horaInicial}h`, horaInicial)
-                horarioParaFiltrar.push(`${horaFinal}:00`, `${horaFinal}h`, horaFinal)
-                
-                console.log(`   📅 Usando horários reais para filtro: ${horarioReal.startTimeReal} - ${horarioReal.closeTimeReal}`)
-              } else {
-                // Se não encontrou horário real, usar horário da extração como fallback
-                if (extracaoParaHorario.time) {
-                  horarioParaFiltrar.push(extracaoParaHorario.time)
+                if (horarioReal) {
+                  // Adicionar horário inicial e final de apuração para busca mais ampla
+                  horarioParaFiltrar.push(horarioReal.startTimeReal)
+                  horarioParaFiltrar.push(horarioReal.closeTimeReal)
+                  
+                  // Também adicionar variações do horário (ex: "17:00", "17h", "17")
+                  const [horaInicial] = horarioReal.startTimeReal.split(':')
+                  const [horaFinal] = horarioReal.closeTimeReal.split(':')
+                  horarioParaFiltrar.push(`${horaInicial}:00`, `${horaInicial}h`, horaInicial)
+                  horarioParaFiltrar.push(`${horaFinal}:00`, `${horaFinal}h`, horaFinal)
+                  
+                  console.log(`   📅 Usando horários reais para filtro: ${horarioReal.startTimeReal} - ${horarioReal.closeTimeReal}`)
+                } else {
+                  // Se não encontrou horário real, usar horário da extração como fallback
+                  if (extracaoParaHorario.time) {
+                    horarioParaFiltrar.push(extracaoParaHorario.time)
+                  }
+                  if (extracaoParaHorario.closeTime) {
+                    horarioParaFiltrar.push(extracaoParaHorario.closeTime)
+                  }
                 }
-                if (extracaoParaHorario.closeTime) {
-                  horarioParaFiltrar.push(extracaoParaHorario.closeTime)
-                }
+              } catch (error) {
+                // Ignorar erro, usar apenas horário da aposta
               }
-            } catch (error) {
-              // Ignorar erro, usar apenas horário da aposta
             }
           }
           

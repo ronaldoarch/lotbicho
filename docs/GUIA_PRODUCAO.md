@@ -17,12 +17,12 @@
 
 ### Servidor
 - Node.js 20+ instalado
-- PostgreSQL configurado e acessível
+- MySQL 8.0+ ou MariaDB 10.6+ configurado e acessível
 - Acesso SSH ao servidor
 - Permissões para criar cron jobs
 
 ### Variáveis de Ambiente Necessárias
-- `DATABASE_URL` - URL de conexão do PostgreSQL
+- `DATABASE_URL` - URL de conexão do MySQL
 - `AUTH_SECRET` - Chave secreta para autenticação
 - `BICHO_CERTO_API` - URL da API do monitor (opcional)
 - `RECEBA_API_KEY` - Chave da API Receba (se usar PIX)
@@ -37,7 +37,7 @@
 
 ```bash
 # Banco de Dados
-DATABASE_URL=postgresql://usuario:senha@localhost:5432/lotbicho
+DATABASE_URL=mysql://usuario:senha@localhost:3306/lotbicho
 
 # Autenticação
 AUTH_SECRET=sua-chave-secreta-aqui-gerar-com-openssl-rand-hex-32
@@ -67,11 +67,11 @@ openssl rand -hex 32
 ### 1. Criar Banco de Dados
 
 ```bash
-# Conectar ao PostgreSQL
-psql -U postgres
+# Conectar ao MySQL
+mysql -u root -p
 
 # Criar banco de dados
-CREATE DATABASE lotbicho;
+CREATE DATABASE lotbicho CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 # Criar usuário (opcional, mas recomendado)
 CREATE USER lotbicho_user WITH PASSWORD 'senha_segura';
@@ -442,7 +442,7 @@ chmod +x /caminho/para/lotbicho/scripts/limpar-logs.sh
 **Verificar:**
 1. Banco está rodando?
    ```bash
-   sudo systemctl status postgresql
+   sudo systemctl status mysql
    ```
 
 2. Variável DATABASE_URL está correta?

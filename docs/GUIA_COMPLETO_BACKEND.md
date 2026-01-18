@@ -28,7 +28,7 @@ Este documento descreve **toda a lógica do backend** implementada no sistema, i
 
 - **Framework:** Next.js 14 (App Router)
 - **Linguagem:** TypeScript
-- **Banco de Dados:** PostgreSQL
+- **Banco de Dados:** MySQL
 - **ORM:** Prisma
 - **Autenticação:** Cookies + Base64URL tokens
 - **APIs:** Next.js API Routes

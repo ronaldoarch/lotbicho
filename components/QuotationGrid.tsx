@@ -18,6 +18,7 @@ interface CotacaoEspecial {
 export default function QuotationGrid() {
   const { modalidades } = useModalidades()
   const [showSpecialModal, setShowSpecialModal] = useState(false)
+  const [selectedModalidadeId, setSelectedModalidadeId] = useState<number | undefined>(undefined)
   const [cotacoesEspeciais, setCotacoesEspeciais] = useState<CotacaoEspecial[]>([])
   
   // Usar modalidades do banco se disponíveis, senão usar do arquivo estático
@@ -43,6 +44,11 @@ export default function QuotationGrid() {
 
   const getSpecialQuotation = (modalidadeId: number) => {
     return cotacoesEspeciais.find(c => c.modalidadeId === modalidadeId)
+  }
+
+  const handleOpenSpecialModal = (modalidadeId: number) => {
+    setSelectedModalidadeId(modalidadeId)
+    setShowSpecialModal(true)
   }
 
   return (
@@ -76,7 +82,7 @@ export default function QuotationGrid() {
 
               {quotation.hasLink && (
                 <button
-                  onClick={() => setShowSpecialModal(true)}
+                  onClick={() => handleOpenSpecialModal(quotation.id)}
                   className="mb-3 flex items-center gap-1 text-sm text-blue underline hover:text-blue-scale-70 transition-colors"
                 >
                   Ver cotações
@@ -94,7 +100,11 @@ export default function QuotationGrid() {
 
       <SpecialQuotationsModal
         isOpen={showSpecialModal}
-        onClose={() => setShowSpecialModal(false)}
+        onClose={() => {
+          setShowSpecialModal(false)
+          setSelectedModalidadeId(undefined)
+        }}
+        modalidadeId={selectedModalidadeId}
       />
     </>
   )

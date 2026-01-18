@@ -15,6 +15,7 @@ export type ModalityType =
   | 'DUPLA_GRUPO'
   | 'TERNO_GRUPO'
   | 'QUADRA_GRUPO'
+  | 'QUINA_GRUPO'
   | 'DEZENA'
   | 'CENTENA'
   | 'MILHAR'
@@ -317,6 +318,8 @@ function getExpectedGroups(modalidade: ModalityType): number {
       return 3
     case 'QUADRA_GRUPO':
       return 4
+    case 'QUINA_GRUPO':
+      return 5
     default:
       return 0 // Não é modalidade de grupo ou não tem validação
   }
@@ -442,6 +445,12 @@ export function buscarOdd(
       '1-7': 1800,
     },
     QUADRA_GRUPO: {
+      '1-1': 5000,
+      '1-3': 5000,
+      '1-5': 5000,
+      '1-7': 5000,
+    },
+    QUINA_GRUPO: {
       '1-1': 5000,
       '1-3': 5000,
       '1-5': 5000,
@@ -641,6 +650,32 @@ export function conferirQuadraGrupo(
 }
 
 /**
+ * Confere um palpite de quina de grupo.
+ */
+export function conferirQuinaGrupo(
+  resultado: number[],
+  gruposApostados: number[],
+  pos_from: number,
+  pos_to: number
+): PrizeCalculation {
+  if (gruposApostados.length !== 5) {
+    throw new Error('Quina de grupo deve ter exatamente 5 grupos')
+  }
+  
+  const grupos = gruposNoResultado(resultado, pos_from, pos_to)
+  const gruposSet = new Set(grupos)
+  
+  const todosPresentes = gruposApostados.every((g) => gruposSet.has(g))
+  const hits = todosPresentes ? 1 : 0
+  
+  return {
+    hits,
+    prizePerUnit: 0,
+    totalPrize: 0,
+  }
+}
+
+/**
  * Confere um palpite de passe (1º → 2º).
  */
 export function conferirPasse(
@@ -754,6 +789,8 @@ export function conferirPalpite(
       prize = conferirTernoGrupo(resultado.prizes, palpite.grupos!, pos_from, pos_to)
     } else if (modalidade === 'QUADRA_GRUPO') {
       prize = conferirQuadraGrupo(resultado.prizes, palpite.grupos!, pos_from, pos_to)
+    } else if (modalidade === 'QUINA_GRUPO') {
+      prize = conferirQuinaGrupo(resultado.prizes, palpite.grupos!, pos_from, pos_to)
     } else {
       throw new Error(`Modalidade de grupo não suportada: ${modalidade}`)
     }

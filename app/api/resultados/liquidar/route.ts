@@ -473,6 +473,7 @@ export async function POST(request: NextRequest) {
       'Dupla de Grupo': 'DUPLA_GRUPO',
       'Terno de Grupo': 'TERNO_GRUPO',
       'Quadra de Grupo': 'QUADRA_GRUPO',
+      'Quina de Grupo': 'QUINA_GRUPO',
       Dezena: 'DEZENA',
       'Duque de Dezena': 'DEZENA', // Usa mesma lógica de DEZENA por enquanto
       'Terno de Dezena': 'DEZENA', // Usa mesma lógica de DEZENA por enquanto

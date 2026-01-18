@@ -2,12 +2,17 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { MODALITIES } from '@/data/modalities'
+import { extracoes } from '@/data/extracoes'
 
 interface Cotacao {
   id: number
-  grupo: string
-  animal: string
-  valor: string
+  name: string | null
+  value: string | null
+  modalidadeId: number | null
+  extracaoId: number | null
+  promocaoId: number | null
+  isSpecial: boolean
   active: boolean
   createdAt: string
 }
@@ -56,6 +61,17 @@ export default function CotacoesPage() {
     }
   }
 
+  const getModalidadeName = (id: number | null) => {
+    if (!id) return 'Todas'
+    return MODALITIES.find(m => m.id === id)?.name || 'N/A'
+  }
+
+  const getExtracaoName = (id: number | null) => {
+    if (!id) return 'Todas'
+    const ext = extracoes.find(e => e.id === id)
+    return ext ? `${ext.name} ${ext.time}` : 'N/A'
+  }
+
   if (loading) {
     return <div className="text-center py-8">Carregando...</div>
   }
@@ -77,9 +93,11 @@ export default function CotacoesPage() {
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Grupo</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Animal</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nome</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Valor</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Modalidade</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Extração</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Especial</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ações</th>
             </tr>
@@ -87,7 +105,7 @@ export default function CotacoesPage() {
           <tbody className="divide-y divide-gray-200">
             {cotacoes.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                <td colSpan={8} className="px-6 py-4 text-center text-gray-500">
                   Nenhuma cotação cadastrada
                 </td>
               </tr>
@@ -95,9 +113,25 @@ export default function CotacoesPage() {
               cotacoes.map((cotacao) => (
                 <tr key={cotacao.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{cotacao.id}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{cotacao.grupo}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{cotacao.animal}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{cotacao.valor}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {cotacao.name || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {cotacao.value || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {getModalidadeName(cotacao.modalidadeId)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {getExtracaoName(cotacao.extracaoId)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {cotacao.isSpecial ? (
+                      <span className="text-xl" title="Cotação Especial">🔥</span>
+                    ) : (
+                      '-'
+                    )}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <button
                       onClick={() => toggleActive(cotacao.id, cotacao.active)}

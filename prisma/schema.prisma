@@ -46,7 +46,7 @@ model Modalidade {
 
 model Promocao {
   id        Int      @id @default(autoincrement())
-  tipo      String   // 'dobro', 'percentual', 'fixo', 'cashback'
+  tipo      String // 'dobro', 'percentual', 'fixo', 'cashback'
   valor     Float
   titulo    String?
   descricao String?
@@ -66,31 +66,35 @@ model Extracao {
 }
 
 model Cotacao {
-  id        Int      @id @default(autoincrement())
-  name      String?
-  value     String?
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           Int      @id @default(autoincrement())
+  name         String?
+  value        String?
+  modalidadeId Int? // ID da modalidade (opcional)
+  extracaoId   Int? // ID da extração (opcional)
+  promocaoId   Int? // ID da promoção (opcional)
+  isSpecial    Boolean  @default(false) // Marca com foguinho 🔥
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model Tema {
-  id          String   @id @default(uuid())
-  nome        String
-  primaria    String   @default("#052370")
-  secundaria  String   @default("#FFD700")
-  acento      String   @default("#FF4444")
-  sucesso     String   @default("#25D366")
-  texto       String   @default("#1C1C1C")
-  textoSecundario String @default("#4A4A4A")
-  textoLink   String   @default("#052370")
-  textoParagrafo String @default("#1C1C1C")
-  textoTitulo String   @default("#1C1C1C")
-  fundo       String   @default("#F5F5F5")
-  fundoSecundario String @default("#FFFFFF")
-  ativo       Boolean  @default(false)
-  criadoEm    DateTime @default(now())
-  atualizadoEm DateTime @updatedAt
+  id              String   @id @default(uuid())
+  nome            String
+  primaria        String   @default("#052370")
+  secundaria      String   @default("#FFD700")
+  acento          String   @default("#FF4444")
+  sucesso         String   @default("#25D366")
+  texto           String   @default("#1C1C1C")
+  textoSecundario String   @default("#4A4A4A")
+  textoLink       String   @default("#052370")
+  textoParagrafo  String   @default("#1C1C1C")
+  textoTitulo     String   @default("#1C1C1C")
+  fundo           String   @default("#F5F5F5")
+  fundoSecundario String   @default("#FFFFFF")
+  ativo           Boolean  @default(false)
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
 }
 
 model Configuracao {
@@ -116,42 +120,42 @@ model Gateway {
 }
 
 model Usuario {
-  id        Int      @id @default(autoincrement())
-  nome      String
-  email     String   @unique
-  telefone  String?
-  passwordHash String?
-  saldo     Float    @default(0)
-  bonus     Float    @default(0)
-  bonusBloqueado Float @default(0)
-  rolloverNecessario Float @default(0) // quanto precisa apostar para liberar o bônus
-  rolloverAtual      Float @default(0) // quanto já apostou que conta para o rollover
-  bonusSemanal Int   @default(0)
-  isAdmin   Boolean  @default(false)
-  ativo     Boolean  @default(true)
-  saques    Saque[]
-  apostas   Aposta[]
-  transacoes Transacao[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 Int         @id @default(autoincrement())
+  nome               String
+  email              String      @unique
+  telefone           String?
+  passwordHash       String?
+  saldo              Float       @default(0)
+  bonus              Float       @default(0)
+  bonusBloqueado     Float       @default(0)
+  rolloverNecessario Float       @default(0) // quanto precisa apostar para liberar o bônus
+  rolloverAtual      Float       @default(0) // quanto já apostou que conta para o rollover
+  bonusSemanal       Int         @default(0)
+  isAdmin            Boolean     @default(false)
+  ativo              Boolean     @default(true)
+  saques             Saque[]
+  apostas            Aposta[]
+  transacoes         Transacao[]
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
 }
 
 model Aposta {
-  id               Int      @id @default(autoincrement())
-  usuarioId        Int
-  concurso         String?
-  loteria          String?
-  estado           String?
-  horario          String?
-  dataConcurso     DateTime?
-  modalidade       String?
-  aposta           String?
-  valor            Float    @default(0)
-  retornoPrevisto  Float    @default(0)
-  status           String   @default("pendente")
-  detalhes         Json?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id              Int       @id @default(autoincrement())
+  usuarioId       Int
+  concurso        String?
+  loteria         String?
+  estado          String?
+  horario         String?
+  dataConcurso    DateTime?
+  modalidade      String?
+  aposta          String?
+  valor           Float     @default(0)
+  retornoPrevisto Float     @default(0)
+  status          String    @default("pendente")
+  detalhes        Json?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   usuario Usuario @relation(fields: [usuarioId], references: [id])
 
@@ -172,18 +176,18 @@ model Saque {
 }
 
 model Transacao {
-  id        Int      @id @default(autoincrement())
-  usuarioId Int
-  tipo      String   // 'deposito', 'saque', etc.
-  status    String   @default("pendente") // pendente, pago, falhou
-  valor     Float
-  gatewayId Int?
-  descricao String?
-  bonusAplicado Float @default(0)
+  id                Int      @id @default(autoincrement())
+  usuarioId         Int
+  tipo              String // 'deposito', 'saque', etc.
+  status            String   @default("pendente") // pendente, pago, falhou
+  valor             Float
+  gatewayId         Int?
+  descricao         String?
+  bonusAplicado     Float    @default(0)
   referenciaExterna String?
-  usuario   Usuario  @relation(fields: [usuarioId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  usuario           Usuario  @relation(fields: [usuarioId], references: [id])
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   @@index([usuarioId])
 }

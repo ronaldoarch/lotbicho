@@ -38,12 +38,42 @@ export default function QuotationGrid() {
     }
   }
 
-  const hasSpecialQuotation = (modalidadeId: number) => {
-    return cotacoesEspeciais.some(c => c.modalidadeId === modalidadeId)
+  const hasSpecialQuotation = (modalidadeId: number, modalidadeName: string) => {
+    // Buscar por ID primeiro, depois por nome como fallback
+    const modalidade = modalidadesParaExibir.find(m => m.id === modalidadeId)
+    const nomeModalidade = modalidade?.name || ''
+    
+    return cotacoesEspeciais.some(c => {
+      // Comparar por ID
+      if (c.modalidadeId === modalidadeId) return true
+      
+      // Comparar por nome da modalidade (fallback)
+      if (c.modalidadeId && nomeModalidade) {
+        const cotacaoModalidade = modalidadesParaExibir.find(m => m.id === c.modalidadeId)
+        return cotacaoModalidade?.name === nomeModalidade
+      }
+      
+      return false
+    })
   }
 
-  const getSpecialQuotation = (modalidadeId: number) => {
-    return cotacoesEspeciais.find(c => c.modalidadeId === modalidadeId)
+  const getSpecialQuotation = (modalidadeId: number, modalidadeName: string) => {
+    // Buscar por ID primeiro, depois por nome como fallback
+    const modalidade = modalidadesParaExibir.find(m => m.id === modalidadeId)
+    const nomeModalidade = modalidade?.name || ''
+    
+    return cotacoesEspeciais.find(c => {
+      // Comparar por ID
+      if (c.modalidadeId === modalidadeId) return true
+      
+      // Comparar por nome da modalidade (fallback)
+      if (c.modalidadeId && nomeModalidade) {
+        const cotacaoModalidade = modalidadesParaExibir.find(m => m.id === c.modalidadeId)
+        return cotacaoModalidade?.name === nomeModalidade
+      }
+      
+      return false
+    })
   }
 
   const handleOpenSpecialModal = (modalidadeId: number) => {
@@ -55,8 +85,8 @@ export default function QuotationGrid() {
     <>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {modalidadesParaExibir.map((quotation) => {
-          const isSpecial = hasSpecialQuotation(quotation.id)
-          const specialQuot = isSpecial ? getSpecialQuotation(quotation.id) : null
+          const isSpecial = hasSpecialQuotation(quotation.id, quotation.name)
+          const specialQuot = isSpecial ? getSpecialQuotation(quotation.id, quotation.name) : null
           
           return (
             <div

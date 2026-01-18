@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { MODALITIES } from '@/data/modalities'
 import { useModalidades } from '@/hooks/useModalidades'
+import { extracoes } from '@/data/extracoes'
 
 interface SpecialQuotationsModalProps {
   isOpen: boolean
@@ -21,15 +23,17 @@ interface CotacaoEspecial {
 }
 
 export default function SpecialQuotationsModal({ isOpen, onClose, modalidadeId }: SpecialQuotationsModalProps) {
+  const router = useRouter()
   const { modalidades } = useModalidades()
   const [cotacoes, setCotacoes] = useState<CotacaoEspecial[]>([])
   const [loading, setLoading] = useState(false)
   
   // Buscar nome da modalidade
   const modalidadesParaBuscar = modalidades.length > 0 ? modalidades : MODALITIES
-  const modalidadeNome = modalidadeId 
-    ? modalidadesParaBuscar.find(m => m.id === modalidadeId)?.name || 'Milhar'
-    : 'Milhar'
+  const modalidadeSelecionada = modalidadeId 
+    ? modalidadesParaBuscar.find(m => m.id === modalidadeId)
+    : null
+  const modalidadeNome = modalidadeSelecionada?.name || 'Milhar'
 
   useEffect(() => {
     if (isOpen) {
@@ -52,6 +56,30 @@ export default function SpecialQuotationsModal({ isOpen, onClose, modalidadeId }
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleCotacaoClick = (cotacao: CotacaoEspecial) => {
+    // Fechar modal
+    onClose()
+    
+    // Construir URL com parâmetros
+    const params = new URLSearchParams()
+    
+    if (modalidadeSelecionada) {
+      params.set('modalidade', modalidadeSelecionada.id.toString())
+      params.set('modalidadeName', modalidadeSelecionada.name)
+    }
+    
+    if (cotacao.extracaoId) {
+      params.set('extracao', cotacao.extracaoId.toString())
+    }
+    
+    if (cotacao.id) {
+      params.set('cotacaoEspecial', cotacao.id.toString())
+    }
+    
+    // Redirecionar para página de apostar
+    router.push(`/apostar?${params.toString()}`)
   }
 
   if (!isOpen) return null
@@ -85,9 +113,10 @@ export default function SpecialQuotationsModal({ isOpen, onClose, modalidadeId }
             </div>
           ) : (
             cotacoes.map((quotation) => (
-              <div
+              <button
                 key={quotation.id}
-                className="flex items-center justify-between rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors"
+                onClick={() => handleCotacaoClick(quotation)}
+                className="w-full flex items-center justify-between rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors text-left cursor-pointer"
               >
                 <div className="flex items-center gap-2">
                   {quotation.isSpecial && (
@@ -98,7 +127,7 @@ export default function SpecialQuotationsModal({ isOpen, onClose, modalidadeId }
                 <div className="text-right">
                   <p className="font-bold text-blue">{quotation.value || '-'}</p>
                 </div>
-              </div>
+              </button>
             ))
           )}
         </div>

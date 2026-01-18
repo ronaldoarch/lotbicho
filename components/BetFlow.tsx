@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { BetData } from '@/types/bet'
 import { ANIMALS } from '@/data/animals'
 import { MODALITIES } from '@/data/modalities'
@@ -44,6 +44,7 @@ const INITIAL_BET_DATA: BetData = {
 
 export default function BetFlow() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { modalidades } = useModalidades()
   const [currentStep, setCurrentStep] = useState(1)
   const [betData, setBetData] = useState<BetData>(INITIAL_BET_DATA)
@@ -56,6 +57,8 @@ export default function BetFlow() {
   const [showAlert, setShowAlert] = useState(false)
   const [alertMessage, setAlertMessage] = useState({ title: '', message: '' })
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [cotacaoEspecialId, setCotacaoEspecialId] = useState<number | null>(null)
+  const [cotacaoEspecial, setCotacaoEspecial] = useState<{ value: string; extracaoId: number | null } | null>(null)
 
   const MAX_PALPITES = 10
 
@@ -84,6 +87,51 @@ export default function BetFlow() {
   const animalsValid = betData.animalBets.length > 0 && betData.animalBets.length <= MAX_PALPITES
   const numbersValid = betData.numberBets.length > 0 && betData.numberBets.length <= MAX_PALPITES
   const step2Valid = isNumberModality ? numbersValid : animalsValid
+
+  // Carregar parâmetros da URL ao montar o componente
+  useEffect(() => {
+    const modalidadeParam = searchParams?.get('modalidade')
+    const modalidadeNameParam = searchParams?.get('modalidadeName')
+    const extracaoParam = searchParams?.get('extracao')
+    const cotacaoEspecialParam = searchParams?.get('cotacaoEspecial')
+
+    if (modalidadeParam && modalidadeNameParam) {
+      const modalidadeId = parseInt(modalidadeParam)
+      setBetData((prev) => ({
+        ...prev,
+        modality: modalidadeId.toString(),
+        modalityName: modalidadeNameParam,
+      }))
+      setCurrentStep(2) // Avançar para o passo de seleção de palpites
+    }
+
+    if (extracaoParam) {
+      const extracaoId = parseInt(extracaoParam)
+      setBetData((prev) => ({
+        ...prev,
+        location: extracaoId.toString(),
+      }))
+    }
+
+    if (cotacaoEspecialParam) {
+      const cotacaoId = parseInt(cotacaoEspecialParam)
+      setCotacaoEspecialId(cotacaoId)
+      
+      // Buscar dados da cotação especial
+      fetch(`/api/admin/cotacoes`)
+        .then(res => res.json())
+        .then(data => {
+          const cotacao = data.cotacoes?.find((c: any) => c.id === cotacaoId)
+          if (cotacao) {
+            setCotacaoEspecial({
+              value: cotacao.value || '',
+              extracaoId: cotacao.extracaoId,
+            })
+          }
+        })
+        .catch(err => console.error('Erro ao buscar cotação especial:', err))
+    }
+  }, [searchParams])
 
   useEffect(() => {
     const loadMe = async () => {
@@ -259,22 +307,41 @@ export default function BetFlow() {
         : betData.position
       const { pos_from, pos_to } = parsePosition(positionToUse)
       
-      // Buscar cotação da modalidade do banco (se disponível)
-      const modalidadeDoBanco = modalidades.find(m => m.name === betData.modalityName && m.active !== false)
+      // Priorizar cotação especial se disponível
       let odd: number
       
-      if (modalidadeDoBanco && modalidadeDoBanco.value) {
-        // Extrair valor da cotação do banco (ex: "1x R$ 20.00" -> 20)
-        const rMatch = modalidadeDoBanco.value.match(/R\$\s*(\d+(?:\.\d+)?)/)
+      if (cotacaoEspecial && cotacaoEspecial.value) {
+        // Extrair valor da cotação especial (ex: "1x R$ 7000.00" -> 7000)
+        const rMatch = cotacaoEspecial.value.match(/R\$\s*(\d+(?:\.\d+)?)/)
         if (rMatch) {
           odd = parseFloat(rMatch[1])
         } else {
-          // Fallback para buscarOdd se não conseguir extrair
-          odd = buscarOdd(modalityType, pos_from, pos_to, betData.modalityName)
+          // Fallback para cotação padrão
+          const modalidadeDoBanco = modalidades.find(m => m.name === betData.modalityName && m.active !== false)
+          if (modalidadeDoBanco && modalidadeDoBanco.value) {
+            const rMatch2 = modalidadeDoBanco.value.match(/R\$\s*(\d+(?:\.\d+)?)/)
+            odd = rMatch2 ? parseFloat(rMatch2[1]) : buscarOdd(modalityType, pos_from, pos_to, betData.modalityName)
+          } else {
+            odd = buscarOdd(modalityType, pos_from, pos_to, betData.modalityName)
+          }
         }
       } else {
-        // Usar busca padrão se não encontrar no banco
-        odd = buscarOdd(modalityType, pos_from, pos_to, betData.modalityName)
+        // Buscar cotação da modalidade do banco (se disponível)
+        const modalidadeDoBanco = modalidades.find(m => m.name === betData.modalityName && m.active !== false)
+        
+        if (modalidadeDoBanco && modalidadeDoBanco.value) {
+          // Extrair valor da cotação do banco (ex: "1x R$ 20.00" -> 20)
+          const rMatch = modalidadeDoBanco.value.match(/R\$\s*(\d+(?:\.\d+)?)/)
+          if (rMatch) {
+            odd = parseFloat(rMatch[1])
+          } else {
+            // Fallback para buscarOdd se não conseguir extrair
+            odd = buscarOdd(modalityType, pos_from, pos_to, betData.modalityName)
+          }
+        } else {
+          // Usar busca padrão se não encontrar no banco
+          odd = buscarOdd(modalityType, pos_from, pos_to, betData.modalityName)
+        }
       }
 
       const qtdPalpites = isNumberModality ? betData.numberBets.length : betData.animalBets.length

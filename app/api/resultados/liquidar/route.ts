@@ -474,6 +474,8 @@ export async function POST(request: NextRequest) {
       'Terno de Grupo': 'TERNO_GRUPO',
       'Quadra de Grupo': 'QUADRA_GRUPO',
       Dezena: 'DEZENA',
+      'Duque de Dezena': 'DEZENA', // Usa mesma lógica de DEZENA por enquanto
+      'Terno de Dezena': 'DEZENA', // Usa mesma lógica de DEZENA por enquanto
       Centena: 'CENTENA',
       Milhar: 'MILHAR',
       'Dezena Invertida': 'DEZENA_INVERTIDA',
@@ -749,11 +751,29 @@ export async function POST(request: NextRequest) {
             }
           }
           
+          // Se não tem horário na aposta mas tem extração, usar horário da extração
+          if (!aposta.horario || aposta.horario === 'null') {
+            if (extracaoParaHorario) {
+              if (extracaoParaHorario.time) {
+                horarioParaFiltrar.push(extracaoParaHorario.time)
+              }
+              if (extracaoParaHorario.closeTime && extracaoParaHorario.closeTime !== extracaoParaHorario.time) {
+                horarioParaFiltrar.push(extracaoParaHorario.closeTime)
+              }
+              console.log(`   ⚠️ Aposta sem horário, usando horário da extração: ${extracaoParaHorario.time || extracaoParaHorario.closeTime}`)
+            }
+          }
+          
           // Se encontramos extração, buscar horário real de apuração
-          if (extracaoParaHorario && loteriaNome && aposta.horario && aposta.horario !== 'null') {
-            try {
-              const horarioExtracao = aposta.horario.trim()
-              const horarioReal = getHorarioRealApuracao(loteriaNome, horarioExtracao)
+          if (extracaoParaHorario && loteriaNome) {
+            const horarioParaBuscar = aposta.horario && aposta.horario !== 'null' 
+              ? aposta.horario.trim() 
+              : (extracaoParaHorario.time || extracaoParaHorario.closeTime || '')
+            
+            if (horarioParaBuscar) {
+              try {
+                const horarioExtracao = horarioParaBuscar.trim()
+                const horarioReal = getHorarioRealApuracao(loteriaNome, horarioExtracao)
               
               if (horarioReal) {
                 // Adicionar horário inicial e final de apuração para busca mais ampla
@@ -974,6 +994,11 @@ export async function POST(request: NextRequest) {
           }
           if (extracaoParaHorarioNovo.closeTime && extracaoParaHorarioNovo.closeTime !== extracaoParaHorarioNovo.time) {
             horariosParaMatch.push(extracaoParaHorarioNovo.closeTime)
+          }
+          
+          // Se não tem horário na aposta, usar horário da extração como principal
+          if (!horarioAposta || horarioAposta === 'null') {
+            console.log(`   ⚠️ Aposta sem horário explícito, usando horário da extração: ${extracaoParaHorarioNovo.time || extracaoParaHorarioNovo.closeTime}`)
           }
         }
         

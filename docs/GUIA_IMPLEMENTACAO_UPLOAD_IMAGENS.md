@@ -6,7 +6,7 @@ Este guia explica como implementar o mesmo sistema de upload de imagens usado no
 
 O sistema utiliza:
 - **Armazenamento local**: Arquivos salvos no sistema de arquivos
-- **MySQL**: Apenas URLs/referências das imagens
+- **PostgreSQL**: Apenas URLs/referências das imagens
 - **API REST**: Endpoints para upload e gerenciamento
 
 ---

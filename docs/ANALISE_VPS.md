@@ -20,7 +20,7 @@
    - Node.js runtime
    - Build estático + API routes
 
-2. **Banco de Dados MySQL**
+2. **Banco de Dados PostgreSQL**
    - Prisma ORM
    - Múltiplas tabelas (Usuarios, Apostas, Transacoes, etc.)
    - Índices em campos críticos
@@ -47,7 +47,7 @@
 - Runtime: Baixo uso de CPU (~5-15% por core)
 - Picos durante parsing HTML: ~30-50% por core
 
-**MySQL:**
+**PostgreSQL:**
 - Queries simples: ~1-5% CPU
 - Queries complexas com joins: ~10-20% CPU
 - Índices bem otimizados reduzem uso
@@ -60,7 +60,7 @@
 **Veredito**: ✅ **SUFICIENTE**
 - 4 cores são adequados para até ~500-1000 usuários simultâneos
 - Parsing HTML é I/O bound, não CPU bound
-- MySQL pode usar múltiplos cores para queries paralelas
+- PostgreSQL pode usar múltiplos cores para queries paralelas
 
 ---
 
@@ -74,11 +74,11 @@
 - Picos durante parsing: +100-200 MB
 - **Total: ~400-900 MB**
 
-**MySQL:**
+**PostgreSQL:**
 - Processo base: ~100-200 MB
-- InnoDB Buffer Pool (innodb_buffer_pool_size): Recomendado 50-70% da RAM = ~8-11GB
+- Buffer pool (shared_buffers): Recomendado 25% da RAM = ~4GB
 - Cache de queries: ~500 MB - 1GB
-- **Total: ~8.5-12 GB**
+- **Total: ~4.5-5.5 GB**
 
 **Sistema Operacional:**
 - Linux base: ~500 MB - 1GB
@@ -94,9 +94,9 @@
 - Médio: ~7-8 GB
 - Pico (muitas requisições simultâneas): ~10-12 GB
 
-**Veredito**: ✅ **ADEQUADO**
-- 16GB permite crescimento até ~1000-2000 usuários simultâneos
-- InnoDB Buffer Pool do MySQL pode ser ajustado conforme necessário (recomendado 8-11GB)
+**Veredito**: ✅ **SUFICIENTE COM MARGEM**
+- 16GB permite crescimento até ~2000-3000 usuários simultâneos
+- Buffer pool do PostgreSQL pode ser otimizado se necessário
 - Espaço para cache de resultados e otimizações futuras
 
 ---
@@ -114,13 +114,13 @@
 - Build (.next): ~100-200 MB
 - **Total: ~500 MB - 1 GB**
 
-**MySQL:**
+**PostgreSQL:**
 - Banco de dados inicial: ~50-100 MB
 - Crescimento estimado:
   - 1000 usuários: ~500 MB
   - 10.000 usuários: ~5 GB
   - 100.000 usuários: ~50 GB
-- Logs do MySQL (binlog, error log): ~1-5 GB (com rotação)
+- Logs do PostgreSQL: ~1-5 GB (com rotação)
 - **Total inicial: ~100 MB - 1 GB**
 - **Total após 1 ano (10k usuários): ~5-10 GB**
 
@@ -136,7 +136,7 @@
 - **Total: ~65-270 MB**
 
 **Backups:**
-- Backups do MySQL (mysqldump): ~100 MB - 5 GB (dependendo do tamanho)
+- Backups do PostgreSQL: ~100 MB - 5 GB (dependendo do tamanho)
 - Backups incrementais: ~10-50 MB/dia
 - **Total: ~500 MB - 10 GB** (com retenção de 7 dias)
 
@@ -239,21 +239,16 @@
 
 ## ⚠️ Pontos de Atenção
 
-### 1. Banco de Dados MySQL
+### 1. Banco de Dados PostgreSQL
 
 **Recomendações:**
-```ini
-# Configurações recomendadas no my.cnf ou my.ini
-[mysqld]
-innodb_buffer_pool_size = 8G     # 50% da RAM (8-11GB ideal)
-innodb_buffer_pool_instances = 4  # Para melhor performance
-max_connections = 200             # Ajustar conforme necessário
-query_cache_size = 256M           # Cache de queries (MySQL 5.7)
-query_cache_type = 1
-tmp_table_size = 256M
-max_heap_table_size = 256M
-innodb_log_file_size = 512M
-innodb_flush_log_at_trx_commit = 2  # Balance entre performance e segurança
+```sql
+-- Configurações recomendadas no postgresql.conf
+shared_buffers = 4GB              -- 25% da RAM
+effective_cache_size = 12GB       -- 75% da RAM
+maintenance_work_mem = 1GB
+work_mem = 64MB                   -- Para queries complexas
+max_connections = 200             -- Ajustar conforme necessário
 ```
 
 ### 2. Otimizações do Next.js
@@ -270,7 +265,7 @@ innodb_flush_log_at_trx_commit = 2  # Balance entre performance e segurança
 - Uso de RAM (alerta se > 90%)
 - Espaço em disco (alerta se < 20% livre)
 - Tráfego mensal (alerta se > 80% do limite)
-- Tempo de resposta do MySQL
+- Tempo de resposta do PostgreSQL
 - Tempo de resposta das APIs
 
 ### 4. Escalabilidade Futura
@@ -296,7 +291,7 @@ A VPS de **$24/mês** com as especificações analisadas é **mais que suficient
 
 ### Recomendações de Implementação
 
-1. **Configurar MySQL corretamente** (innodb_buffer_pool_size, cache, etc.)
+1. **Configurar PostgreSQL corretamente** (shared_buffers, cache, etc.)
 2. **Implementar monitoramento** (CPU, RAM, disco, tráfego)
 3. **Configurar backups automáticos** do banco de dados
 4. **Implementar cache** para reduzir carga no bichocerto.com
@@ -305,7 +300,7 @@ A VPS de **$24/mês** com as especificações analisadas é **mais que suficient
 ### Próximos Passos
 
 1. ✅ Provisionar a VPS
-2. ✅ Instalar MySQL 8.0+ ou MariaDB 10.6+
+2. ✅ Instalar PostgreSQL 14+
 3. ✅ Configurar variáveis de ambiente
 4. ✅ Deploy da aplicação
 5. ✅ Configurar monitoramento

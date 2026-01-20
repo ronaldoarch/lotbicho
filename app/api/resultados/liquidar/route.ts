@@ -1246,27 +1246,33 @@ export async function POST(request: NextRequest) {
         const posicoesArray = Array.from(posicoesEncontradas).sort((a, b) => a - b)
         console.log(`   📊 Posições encontradas nos resultados: [${posicoesArray.join(', ')}] (total: ${resultadosOrdenados.length} resultado(s))`)
         
-        // Determinar limite de prêmios baseado na loteria (LOTEP/LOTECE = 10, outras = 7)
-        const limitePremios = getLimitePremios(loteriaNome)
-        console.log(`   📊 Limite de prêmios para "${loteriaNome}": ${limitePremios} posições`)
+        // Determinar limite de prêmios para validação baseado na loteria (LOTEP/LOTECE pode ter até 10, outras até 7)
+        const limitePremiosValidacao = getLimitePremios(loteriaNome)
         
-        // Verificar se temos pelo menos as posições necessárias (1º ao limite)
-        const posicoesNecessarias = Array.from({ length: limitePremios }, (_, i) => i + 1)
+        // Sempre usar 7 prêmios para exibição e salvamento (5 originais + 6º e 7º calculados)
+        // Mesmo para LOTEP/LOTECE que podem ter até 10 prêmios, mostramos apenas os 7 primeiros calculados
+        const limitePremiosExibicao = 7
+        
+        console.log(`   📊 Limite de prêmios para validação "${loteriaNome}": ${limitePremiosValidacao} posições`)
+        console.log(`   📊 Limite de prêmios para exibição: ${limitePremiosExibicao} posições (5 originais + 6º e 7º calculados)`)
+        
+        // Verificar se temos pelo menos 7 posições (5 originais + 6º e 7º calculados)
+        const posicoesNecessarias = [1, 2, 3, 4, 5, 6, 7]
         const temTodasPosicoes = posicoesNecessarias.every(pos => posicoesEncontradas.has(pos))
         
         if (!temTodasPosicoes) {
           const posicoesFaltando = posicoesNecessarias.filter(pos => !posicoesEncontradas.has(pos))
-          console.log(`   ⚠️ Resultado incompleto: faltam posições ${posicoesFaltando.join(', ')} (necessário: 1º ao ${limitePremios}º)`)
+          console.log(`   ⚠️ Resultado incompleto: faltam posições ${posicoesFaltando.join(', ')} (necessário: 1º ao 7º)`)
           console.log(`   📋 Detalhes dos resultados encontrados:`)
-          resultadosOrdenados.slice(0, limitePremios + 3).forEach((r, idx) => {
+          resultadosOrdenados.slice(0, limitePremiosExibicao + 3).forEach((r, idx) => {
             console.log(`      ${idx + 1}. Posição: ${r.position || 'N/A'}, Milhar: ${r.milhar || 'N/A'}, Grupo: ${r.grupo || 'N/A'}`)
           })
           console.log(`   ⏸️  Aguardando resultado completo para aposta ${aposta.id}`)
           continue
         }
         
-        // Se tem todas as posições, fazer slice para pegar até o limite
-        const resultadosParaLiquidacao = resultadosOrdenados.slice(0, limitePremios)
+        // Sempre pegar apenas 7 prêmios para exibição (5 originais + 6º e 7º calculados)
+        const resultadosParaLiquidacao = resultadosOrdenados.slice(0, limitePremiosExibicao)
         
         // VALIDAÇÃO FINAL: Verificar se o resultado corresponde à extração/horário/data
         // Esta validação é menos restritiva - se já passou pelos filtros anteriores (loteria, horário, data),

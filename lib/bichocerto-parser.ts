@@ -612,7 +612,7 @@ export function converterParaFormatoSistema(
     const limitePremios = isLotepOuLotece ? 10 : 7
     
     // Ordenar prêmios por posição
-    const premiosOrdenados = [...premiosOriginais].sort((a, b) => {
+    let premiosOrdenados = [...premiosOriginais].sort((a, b) => {
       const posA = parseInt(a.posicao?.replace(/\D/g, '') || '0')
       const posB = parseInt(b.posicao?.replace(/\D/g, '') || '0')
       return posA - posB
@@ -666,9 +666,22 @@ export function converterParaFormatoSistema(
       
       // TODO: Implementar cálculo de 8º, 9º e 10º prêmios quando necessário
       // Para LOTEP e LOTECE que têm 10 prêmios, confirmar regras específicas
+      
+      // IMPORTANTE: Sempre limitar a 7 prêmios para exibição
+      // Mesmo para LOTEP/LOTECE que podem ter até 10 prêmios na API,
+      // mostramos apenas os 7 primeiros (5 originais + 6º e 7º calculados)
+      if (premiosOrdenados.length > 7) {
+        premiosOrdenados = premiosOrdenados.slice(0, 7)
+      }
     }
     
-    // Processar todos os prêmios (originais + calculados)
+    // IMPORTANTE: Sempre limitar a 7 prêmios para exibição, mesmo se não calculamos prêmios adicionais
+    // Isso garante que mesmo quando a API retorna 10 prêmios diretamente, mostramos apenas 7
+    if (premiosOrdenados.length > 7) {
+      premiosOrdenados = premiosOrdenados.slice(0, 7)
+    }
+    
+    // Processar todos os prêmios (originais + calculados, máximo 7)
     premiosOrdenados.forEach((premio) => {
       // Garantir que milhar sempre tenha 4 dígitos
       let milharNormalizado = premio.numero || ''
@@ -751,7 +764,7 @@ export async function buscarResultadosParaLiquidacao(
     const premiosOriginais = [...extracao.premios]
     
     // Ordenar prêmios por posição
-    const premiosOrdenados = [...premiosOriginais].sort((a, b) => {
+    let premiosOrdenados = [...premiosOriginais].sort((a, b) => {
       const posA = parseInt(a.posicao?.replace(/\D/g, '') || '0')
       const posB = parseInt(b.posicao?.replace(/\D/g, '') || '0')
       return posA - posB
@@ -805,9 +818,22 @@ export async function buscarResultadosParaLiquidacao(
       
       // TODO: Implementar cálculo de 8º, 9º e 10º prêmios quando necessário
       // Para LOTEP e LOTECE que têm 10 prêmios, confirmar regras específicas
+      
+      // IMPORTANTE: Sempre limitar a 7 prêmios para exibição
+      // Mesmo para LOTEP/LOTECE que podem ter até 10 prêmios na API,
+      // mostramos apenas os 7 primeiros (5 originais + 6º e 7º calculados)
+      if (premiosOrdenados.length > 7) {
+        premiosOrdenados = premiosOrdenados.slice(0, 7)
+      }
     }
     
-    // Processar todos os prêmios (originais + calculados)
+    // IMPORTANTE: Sempre limitar a 7 prêmios para exibição, mesmo se não calculamos prêmios adicionais
+    // Isso garante que mesmo quando a API retorna 10 prêmios diretamente, mostramos apenas 7
+    if (premiosOrdenados.length > 7) {
+      premiosOrdenados = premiosOrdenados.slice(0, 7)
+    }
+    
+    // Processar todos os prêmios (originais + calculados, máximo 7)
     premiosOrdenados.forEach((premio) => {
       // Garantir que milhar sempre tenha 4 dígitos
       let milharNormalizado = premio.numero || ''

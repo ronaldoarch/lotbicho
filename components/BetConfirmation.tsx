@@ -122,14 +122,15 @@ export default function BetConfirmation({ betData, saldoDisponivel, onConfirm, o
         
         // Calcular retorno total (assumindo que todos os palpites acertam)
         let retornoTotal = 0
+        const qtdPosicoes = pos_to - pos_from + 1 // Quantidade de posições
 
         if (isNumberModality) {
           // Para modalidades numéricas
           for (const numero of numberBets) {
             const calculation = calcularNumero(modalityType, numero, pos_from, pos_to, valorPorPalpite)
             const premioUnidade = calcularPremioUnidade(odd, calculation.unitValue)
-            // Assumir 1 acerto por palpite (melhor caso)
-            retornoTotal += premioUnidade
+            // Assumir 1 acerto por palpite (melhor caso) e multiplicar por posições
+            retornoTotal += premioUnidade * qtdPosicoes
           }
         } else {
           // Para modalidades de grupo
@@ -137,8 +138,8 @@ export default function BetConfirmation({ betData, saldoDisponivel, onConfirm, o
             const qtdGrupos = animalBet.length
             const calculation = calcularGrupo(modalityType, qtdGrupos, pos_from, pos_to, valorPorPalpite)
             const premioUnidade = calcularPremioUnidade(odd, calculation.unitValue)
-            // Assumir 1 acerto por palpite (melhor caso)
-            retornoTotal += premioUnidade
+            // Assumir 1 acerto por palpite (melhor caso) e multiplicar por posições
+            retornoTotal += premioUnidade * qtdPosicoes
           }
         }
 

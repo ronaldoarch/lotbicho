@@ -346,6 +346,7 @@ export default function BetFlow() {
 
       const qtdPalpites = isNumberModality ? betData.numberBets.length : betData.animalBets.length
       const valorPorPalpite = calcularValorPorPalpite(betData.amount, qtdPalpites, betData.divisionType)
+      const qtdPosicoes = pos_to - pos_from + 1 // Quantidade de posições
       
       let retornoTotal = 0
 
@@ -353,16 +354,16 @@ export default function BetFlow() {
         for (const numero of betData.numberBets) {
           const calculation = calcularNumero(modalityType, numero, pos_from, pos_to, valorPorPalpite)
           const premioUnidade = calcularPremioUnidade(odd, calculation.unitValue)
-          // Assumir 1 acerto por palpite (melhor caso)
-          retornoTotal += premioUnidade
+          // Assumir 1 acerto por palpite (melhor caso) e multiplicar por posições
+          retornoTotal += premioUnidade * qtdPosicoes
         }
       } else {
         for (const animalBet of betData.animalBets) {
           const qtdGrupos = animalBet.length
           const calculation = calcularGrupo(modalityType, qtdGrupos, pos_from, pos_to, valorPorPalpite)
           const premioUnidade = calcularPremioUnidade(odd, calculation.unitValue)
-          // Assumir 1 acerto por palpite (melhor caso)
-          retornoTotal += premioUnidade
+          // Assumir 1 acerto por palpite (melhor caso) e multiplicar por posições
+          retornoTotal += premioUnidade * qtdPosicoes
         }
       }
 

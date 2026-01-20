@@ -913,7 +913,12 @@ export function conferirPalpite(
   // Tenta usar cotação dinâmica se modalityName fornecido, senão usa tabela fixa
   const odd = buscarOdd(modalidade, pos_from, pos_to, modalityName)
   const premioUnidade = calcularPremioUnidade(odd, calculation.unitValue)
-  const totalPrize = calcularPremioPalpite(prize.hits, premioUnidade)
+  
+  // Calcular quantidade de posições
+  const qtdPosicoes = pos_to - pos_from + 1
+  
+  // Multiplicar pela quantidade de posições no final
+  const totalPrize = calcularPremioPalpite(prize.hits, premioUnidade) * qtdPosicoes
   
   return {
     calculation,

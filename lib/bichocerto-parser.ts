@@ -621,21 +621,23 @@ export function converterParaFormatoSistema(
     // Verificar quantos prêmios temos (geralmente 1º ao 5º)
     const qtdPremiosOriginais = premiosOrdenados.length
     
-    // Se temos pelo menos 5 prêmios e precisamos calcular mais, calcular prêmios adicionais
+    // Se temos pelo menos 5 prêmios, SEMPRE recalcular os prêmios 6º e 7º
+    // Mesmo que a API retorne esses prêmios, devemos usar os valores calculados
     if (qtdPremiosOriginais >= 5) {
-      // Converter prêmios originais para números
+      // Converter prêmios originais (5 primeiros) para números
       const milhares = premiosOrdenados.slice(0, 5).map(p => {
         const milharStr = (p.numero || '').replace(/\D/g, '').padStart(4, '0')
         return parseInt(milharStr.slice(-4), 10)
       })
       
-      // Verificar quais posições já existem
-      const posicoesExistentes = new Set(
-        premiosOrdenados.map(p => parseInt(p.posicao?.replace(/\D/g, '') || '0'))
-      )
+      // Remover prêmios 6º e 7º se existirem (vamos recalcular)
+      premiosOrdenados = premiosOrdenados.filter(p => {
+        const pos = parseInt(p.posicao?.replace(/\D/g, '') || '0')
+        return pos < 6 // Manter apenas posições 1º a 5º
+      })
       
-      // Calcular e adicionar 6º prêmio se não existir e precisar
-      if (limitePremios >= 6 && !posicoesExistentes.has(6)) {
+      // SEMPRE calcular e adicionar 6º prêmio (substitui se já existir da API)
+      if (limitePremios >= 6) {
         const premio6 = calcular6Premio(milhares)
         const grupo6 = milharParaGrupo(premio6)
         const animal6 = ANIMALS.find(a => a.group === grupo6)
@@ -648,8 +650,8 @@ export function converterParaFormatoSistema(
         })
       }
       
-      // Calcular e adicionar 7º prêmio se não existir e precisar
-      if (limitePremios >= 7 && !posicoesExistentes.has(7)) {
+      // SEMPRE calcular e adicionar 7º prêmio (substitui se já existir da API)
+      if (limitePremios >= 7) {
         const premio7 = calcular7Premio(milhares)
         // 7º prêmio tem 3 dígitos, mas formatamos como 4 dígitos (com zero à esquerda)
         const premio7Formatado = premio7.toString().padStart(3, '0').padStart(4, '0')
@@ -773,21 +775,23 @@ export async function buscarResultadosParaLiquidacao(
     // Verificar quantos prêmios temos (geralmente 1º ao 5º)
     const qtdPremiosOriginais = premiosOrdenados.length
     
-    // Se temos pelo menos 5 prêmios e precisamos calcular mais, calcular prêmios adicionais
+    // Se temos pelo menos 5 prêmios, SEMPRE recalcular os prêmios 6º e 7º
+    // Mesmo que a API retorne esses prêmios, devemos usar os valores calculados
     if (qtdPremiosOriginais >= 5) {
-      // Converter prêmios originais para números
+      // Converter prêmios originais (5 primeiros) para números
       const milhares = premiosOrdenados.slice(0, 5).map(p => {
         const milharStr = (p.numero || '').replace(/\D/g, '').padStart(4, '0')
         return parseInt(milharStr.slice(-4), 10)
       })
       
-      // Verificar quais posições já existem
-      const posicoesExistentes = new Set(
-        premiosOrdenados.map(p => parseInt(p.posicao?.replace(/\D/g, '') || '0'))
-      )
+      // Remover prêmios 6º e 7º se existirem (vamos recalcular)
+      premiosOrdenados = premiosOrdenados.filter(p => {
+        const pos = parseInt(p.posicao?.replace(/\D/g, '') || '0')
+        return pos < 6 // Manter apenas posições 1º a 5º
+      })
       
-      // Calcular e adicionar 6º prêmio se não existir e precisar
-      if (limitePremios >= 6 && !posicoesExistentes.has(6)) {
+      // SEMPRE calcular e adicionar 6º prêmio (substitui se já existir da API)
+      if (limitePremios >= 6) {
         const premio6 = calcular6Premio(milhares)
         const grupo6 = milharParaGrupo(premio6)
         const animal6 = ANIMALS.find(a => a.group === grupo6)
@@ -800,8 +804,8 @@ export async function buscarResultadosParaLiquidacao(
         })
       }
       
-      // Calcular e adicionar 7º prêmio se não existir e precisar
-      if (limitePremios >= 7 && !posicoesExistentes.has(7)) {
+      // SEMPRE calcular e adicionar 7º prêmio (substitui se já existir da API)
+      if (limitePremios >= 7) {
         const premio7 = calcular7Premio(milhares)
         // 7º prêmio tem 3 dígitos, mas formatamos como 4 dígitos (com zero à esquerda)
         const premio7Formatado = premio7.toString().padStart(3, '0').padStart(4, '0')

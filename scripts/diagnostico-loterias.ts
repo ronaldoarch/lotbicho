@@ -3,8 +3,29 @@
  */
 
 import { PrismaClient } from '@prisma/client'
+import { extracoes } from '../data/extracoes'
 
 const prisma = new PrismaClient()
+
+/**
+ * Obtém o nome da loteria a partir do ID ou nome
+ */
+function getNomeLoteria(loteria: string | null | undefined): string {
+  if (!loteria) return 'SEM_LOTERIA'
+  
+  const loteriaStr = String(loteria).trim()
+  
+  // Se é um ID numérico, buscar da lista de extrações
+  if (/^\d+$/.test(loteriaStr)) {
+    const extracaoId = parseInt(loteriaStr, 10)
+    const extracao = extracoes.find((e: any) => e.id === extracaoId)
+    if (extracao) {
+      return `${extracao.name} (ID: ${extracaoId})`
+    }
+  }
+  
+  return loteriaStr
+}
 
 async function diagnosticarLoterias() {
   console.log('🔍 Diagnosticando loterias no banco de dados...\n')
@@ -39,22 +60,22 @@ async function diagnosticarLoterias() {
       const resultadoOficial = detalhes?.resultadoOficial
       const prizes = resultadoOficial?.prizes || []
 
-      const loteria = aposta.loteria || 'SEM_LOTERIA'
+      const loteriaNome = getNomeLoteria(aposta.loteria)
       
-      if (!loteriasMap.has(loteria)) {
-        loteriasMap.set(loteria, {
+      if (!loteriasMap.has(loteriaNome)) {
+        loteriasMap.set(loteriaNome, {
           count: 0,
           exemplos: [],
         })
       }
 
-      const entry = loteriasMap.get(loteria)!
+      const entry = loteriasMap.get(loteriaNome)!
       entry.count++
       
       if (entry.exemplos.length < 3) {
         entry.exemplos.push({
           id: aposta.id,
-          loteria: aposta.loteria,
+          loteria: loteriaNome,
           prizes: prizes.slice(0, 7),
         })
       }

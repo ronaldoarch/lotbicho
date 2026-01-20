@@ -22,8 +22,60 @@ import {
 } from '../lib/bet-rules-engine'
 import { parsePosition } from '../lib/position-parser'
 import { ANIMALS } from '../data/animals'
+import { extracoes } from '../data/extracoes'
 
 const prisma = new PrismaClient()
+
+/**
+ * Verifica se uma loteria (ID ou nome) é LOTEP ou LOTECE
+ */
+function isLotepOuLotece(loteria: string | null | undefined): boolean {
+  if (!loteria) return false
+  
+  const loteriaStr = String(loteria).trim()
+  const loteriaLower = loteriaStr.toLowerCase()
+  
+  // Verificar se é um ID numérico
+  if (/^\d+$/.test(loteriaStr)) {
+    const extracaoId = parseInt(loteriaStr, 10)
+    const extracao = extracoes.find((e: any) => e.id === extracaoId)
+    if (extracao) {
+      const nome = extracao.name.toUpperCase()
+      return nome === 'LOTEP' || nome === 'LOTECE'
+    }
+  }
+  
+  // Verificar se contém nomes
+  return loteriaLower.includes('lotep') || 
+         loteriaLower.includes('lotece') ||
+         loteriaLower.includes('paraiba') ||
+         loteriaLower.includes('paraíba') ||
+         loteriaLower.includes('ceara') ||
+         loteriaLower.includes('ceará') ||
+         loteriaLower === 'pb' ||
+         loteriaLower === 'ce' ||
+         loteriaLower === 'lce'
+}
+
+/**
+ * Obtém o nome da loteria a partir do ID ou nome
+ */
+function getNomeLoteria(loteria: string | null | undefined): string {
+  if (!loteria) return 'N/A'
+  
+  const loteriaStr = String(loteria).trim()
+  
+  // Se é um ID numérico, buscar da lista de extrações
+  if (/^\d+$/.test(loteriaStr)) {
+    const extracaoId = parseInt(loteriaStr, 10)
+    const extracao = extracoes.find((e: any) => e.id === extracaoId)
+    if (extracao) {
+      return extracao.name
+    }
+  }
+  
+  return loteriaStr
+}
 
 async function corrigirPremios() {
   console.log('🔧 Iniciando correção de prêmios 6º e 7º...\n')
@@ -72,35 +124,19 @@ async function corrigirPremios() {
       }
 
       // Verificar se é LOTEP ou LOTECE
-      // Verificar no campo loteria e também nos detalhes
-      const loteriaNome = (aposta.loteria || '').toLowerCase()
-      const loteriaNomeDetalhes = (detalhes?.loteria || '').toLowerCase()
-      const loteriaCompleta = `${loteriaNome} ${loteriaNomeDetalhes}`.toLowerCase()
-      
-      const isLotepOuLotece = 
-        loteriaNome.includes('lotep') || 
-        loteriaNome.includes('lotece') ||
-        loteriaNomeDetalhes.includes('lotep') ||
-        loteriaNomeDetalhes.includes('lotece') ||
-        loteriaCompleta.includes('lotep') ||
-        loteriaCompleta.includes('lotece') ||
-        // Verificar também códigos
-        loteriaNome === 'pb' || // Paraíba = LOTEP
-        loteriaNome === 'ce' || // Ceará = LOTECE
-        loteriaNome === 'lce' || // Código LOTECE
-        (loteriaNome.includes('paraiba') && loteriaNome.includes('lotep')) ||
-        (loteriaNome.includes('paraíba') && loteriaNome.includes('lotep')) ||
-        (loteriaNome.includes('ceara') && loteriaNome.includes('lotece')) ||
-        (loteriaNome.includes('ceará') && loteriaNome.includes('lotece'))
+      // O campo loteria pode ser um ID numérico ou nome
+      const isLotepOuLoteceCheck = isLotepOuLotece(aposta.loteria) || isLotepOuLotece(detalhes?.loteria)
 
-      if (!isLotepOuLotece) {
+      if (!isLotepOuLoteceCheck) {
         naoLotepLotece++
         continue
       }
       
       lotepLoteceEncontradas++
+      const nomeLoteria = getNomeLoteria(aposta.loteria) || getNomeLoteria(detalhes?.loteria) || 'N/A'
       console.log(`\n🎯 Aposta LOTEP/LOTECE encontrada: ${aposta.id}`)
-      console.log(`   Loteria: ${aposta.loteria || 'N/A'}`)
+      console.log(`   Loteria (ID): ${aposta.loteria || 'N/A'}`)
+      console.log(`   Loteria (Nome): ${nomeLoteria}`)
       console.log(`   Prêmios atuais: ${prizes.slice(0, 7).map((p: any) => String(p).padStart(4, '0')).join(', ')}`)
 
       // Precisamos ter pelo menos 5 prêmios para calcular
@@ -146,7 +182,8 @@ async function corrigirPremios() {
 
       if (precisaCorrigir6 || precisaCorrigir7) {
         lotepLoteceComPremioErrado++
-        console.log(`\n🔧 Corrigindo aposta ${aposta.id} (${aposta.loteria})`)
+        const nomeLoteria = getNomeLoteria(aposta.loteria) || getNomeLoteria(detalhes?.loteria) || 'N/A'
+        console.log(`\n🔧 Corrigindo aposta ${aposta.id} (${nomeLoteria})`)
         console.log(`   Prêmios atuais: 6º=${String(premio6AtualNum).padStart(4, '0')}, 7º=${String(premio7AtualNum).padStart(4, '0')}`)
         console.log(`   Prêmios corretos: 6º=${String(premio6Correto).padStart(4, '0')}, 7º=${String(premio7Correto).padStart(4, '0')}`)
 

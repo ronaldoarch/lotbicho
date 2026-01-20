@@ -13,7 +13,8 @@
     "prisma:studio": "prisma studio",
     "prisma:push": "prisma db push",
     "init:db": "node scripts/check-db.js",
-    "create-admin": "tsx scripts/create-admin.ts"
+    "create-admin": "tsx scripts/create-admin.ts",
+    "corrigir-premios": "tsx scripts/corrigir-premios-6-7.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.0.0",

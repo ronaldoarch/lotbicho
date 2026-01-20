@@ -14,3 +14,7 @@ yarn-error.log*
 coverage
 .vscode
 .idea
+# Scripts de verificação (não necessários no build)
+scripts/verificar-*.ts
+scripts/testar-*.ts
+scripts/diagnostico-*.ts

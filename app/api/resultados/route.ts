@@ -10,6 +10,35 @@ import {
 } from '@/lib/bichocerto-parser'
 
 /**
+ * Retorna o limite de prêmios baseado no nome da loteria.
+ * LOTEP e LOTECE têm 10 prêmios, outras loterias têm 7.
+ */
+function getLimitePremios(loteriaNome: string | null | undefined): number {
+  if (!loteriaNome) return 7
+  
+  const nomeLower = loteriaNome.toLowerCase()
+  if (nomeLower.includes('lotep') || nomeLower.includes('lotece')) {
+    return 10
+  }
+  
+  return 7
+}
+
+/**
+ * Limita resultados por posição baseado na loteria.
+ * Para LOTEP e LOTECE retorna até 10 posições, para outras até 7.
+ */
+function limitarPorPosicao(resultados: ResultadoItem[]): ResultadoItem[] {
+  if (resultados.length === 0) return resultados
+  
+  // Pegar o nome da loteria do primeiro resultado (todos do mesmo grupo têm a mesma loteria)
+  const loteriaNome = resultados[0]?.loteria || resultados[0]?.location || null
+  const limite = getLimitePremios(loteriaNome)
+  
+  return resultados.slice(0, limite)
+}
+
+/**
  * Normaliza o horário do resultado para o horário correto de fechamento da extração
  * Isso garante que os resultados sejam associados ao horário correto desde o início
  * 
@@ -491,10 +520,10 @@ export async function GET(req: NextRequest) {
       console.log(`📦 Agrupamento: ${antesAgrupamento} resultados → ${Object.keys(grouped).length} grupos únicos`)
       
       results = Object.values(grouped)
-        .map((arr) => orderByPosition(arr).slice(0, 7))
+        .map((arr) => limitarPorPosicao(orderByPosition(arr)))
         .flat()
       
-      console.log(`✂️  Após limitar a 7 posições por grupo: ${results.length} resultados`)
+      console.log(`✂️  Após limitar posições por grupo (LOTEP/LOTECE: 10, outras: 7): ${results.length} resultados`)
       
       const payload: ResultadosResponse = {
         results,
@@ -672,10 +701,10 @@ export async function GET(req: NextRequest) {
     })
     
     results = Object.values(grouped)
-      .map((arr) => orderByPosition(arr).slice(0, 7))
+      .map((arr) => limitarPorPosicao(orderByPosition(arr)))
       .flat()
     
-    console.log(`✂️  Após limitar a 7 posições por grupo: ${results.length} resultados (antes: ${antesAgrupamento})`)
+    console.log(`✂️  Após limitar posições por grupo (LOTEP/LOTECE: 10, outras: 7): ${results.length} resultados (antes: ${antesAgrupamento})`)
     
     // Log final: mostrar quantos grupos únicos foram criados
     const gruposUnicos = new Set(Object.keys(grouped))

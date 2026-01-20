@@ -228,8 +228,26 @@ export async function GET(req: NextRequest) {
 
     const estatisticas: Record<string, number> = {}
     Object.entries(por_estado).forEach(([uf, arr]) => {
-      por_estado[uf] = orderByPosition(arr).slice(0, 7)
-      estatisticas[uf] = por_estado[uf].length
+      // Limitar posições baseado na loteria (LOTEP/LOTECE = 10, outras = 7)
+      // Agrupar por loteria/horário/data para aplicar limite correto
+      const grouped: Record<string, ResultadoItem[]> = {}
+      arr.forEach(r => {
+        const key = `${r.loteria || r.location || 'unknown'}|${r.horario || ''}|${r.date || ''}`
+        if (!grouped[key]) grouped[key] = []
+        grouped[key].push(r)
+      })
+      
+      const limitedResults = Object.values(grouped)
+        .map(groupedArr => {
+          const ordenado = orderByPosition(groupedArr)
+          const loteriaNome = ordenado[0]?.loteria || ordenado[0]?.location || null
+          const limite = loteriaNome?.toLowerCase().includes('lotep') || loteriaNome?.toLowerCase().includes('lotece') ? 10 : 7
+          return ordenado.slice(0, limite)
+        })
+        .flat()
+      
+      por_estado[uf] = limitedResults
+      estatisticas[uf] = limitedResults.length
     })
 
     return NextResponse.json({

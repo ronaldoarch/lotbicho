@@ -225,7 +225,23 @@ export async function GET(req: NextRequest, { params }: { params: { uf: string }
       })
     }
 
-    results = orderByPosition(results).slice(0, 7)
+    // Limitar posições baseado na loteria (LOTEP/LOTECE = 10, outras = 7)
+    // Como pode ter múltiplas loterias misturadas, agrupar por loteria primeiro
+    const grouped: Record<string, ResultadoItem[]> = {}
+    results.forEach(r => {
+      const key = `${r.loteria || r.location || 'unknown'}|${r.horario || ''}|${r.date || ''}`
+      if (!grouped[key]) grouped[key] = []
+      grouped[key].push(r)
+    })
+    
+    results = Object.values(grouped)
+      .map(arr => {
+        const ordenado = orderByPosition(arr)
+        const loteriaNome = ordenado[0]?.loteria || ordenado[0]?.location || null
+        const limite = loteriaNome?.toLowerCase().includes('lotep') || loteriaNome?.toLowerCase().includes('lotece') ? 10 : 7
+        return ordenado.slice(0, limite)
+      })
+      .flat()
 
     return NextResponse.json({
       uf: ufParam,

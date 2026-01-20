@@ -6,6 +6,9 @@
  * Retorna: HTML com divs de resultados
  */
 
+import { calcular6Premio, calcular7Premio, milharParaGrupo } from '@/lib/bet-rules-engine'
+import { ANIMALS } from '@/data/animals'
+
 export interface BichoCertoResultado {
   horario: string
   titulo: string
@@ -224,11 +227,13 @@ function parsearHTML(html: string, codigoLoteria: string): Record<string, BichoC
       const posicoesExtraidas = premios.map(p => p.posicao).join(', ')
       console.log(`      Posições extraídas: ${posicoesExtraidas}`)
       
-      // Verificar se tem 7º prêmio
-      const tem7Premio = premios.some(p => p.posicao === '7º' || p.posicao === '7')
-      if (!tem7Premio && premios.length >= 6) {
-        console.log(`      ⚠️ ATENÇÃO: Encontrados ${premios.length} prêmios mas NÃO encontrado 7º prêmio!`)
-        console.log(`      Conteúdo da tabela (últimas 500 chars): ${tableContent.slice(-500)}`)
+      // Verificar se tem prêmios além do 5º (para loterias com mais prêmios)
+      const temPremioAlemDo5 = premios.some(p => {
+        const match = p.posicao.match(/(\d+)/)
+        return match && parseInt(match[1], 10) > 5
+      })
+      if (!temPremioAlemDo5 && premios.length >= 5) {
+        console.log(`      ℹ️ Encontrados ${premios.length} prêmios (1º ao 5º). LOTEP/LOTECE podem ter até 10 prêmios.`)
       }
     }
     
@@ -340,11 +345,11 @@ function extrairPremiosDaTabela(tableContent: string): BichoCertoResultado['prem
         const posicaoMatchAlt = coluna.match(/(\d+)[º°oO]?/i)
         if (posicaoMatchAlt) {
           const numPos = parseInt(posicaoMatchAlt[1], 10)
-          // Se for uma posição válida (1-7), usar
-          if (numPos >= 1 && numPos <= 7) {
+          // Se for uma posição válida (1-10 para suportar LOTEP/LOTECE), usar
+          if (numPos >= 1 && numPos <= 10) {
             posicao = `${posicaoMatchAlt[1]}º`
-            if (numPos === 7) {
-              console.log(`   🔍 Linha ${linhaIndex}: Encontrada posição "7º" na coluna ${i + 1}: "${coluna}"`)
+            if (numPos >= 7 && numPos <= 10) {
+              console.log(`   🔍 Linha ${linhaIndex}: Encontrada posição "${numPos}º" na coluna ${i + 1}: "${coluna}"`)
             }
             break
           }
@@ -598,7 +603,73 @@ export function converterParaFormatoSistema(
   }> = []
   
   Object.values(resultados).forEach((extracao) => {
-    extracao.premios.forEach((premio) => {
+    // Processar prêmios que vieram da API
+    const premiosOriginais = [...extracao.premios]
+    
+    // Verificar se é LOTEP ou LOTECE (têm até 10 prêmios)
+    const isLotepOuLotece = loteriaInfo.nome?.toUpperCase().includes('LOTEP') || 
+                            loteriaInfo.nome?.toUpperCase().includes('LOTECE')
+    const limitePremios = isLotepOuLotece ? 10 : 7
+    
+    // Ordenar prêmios por posição
+    const premiosOrdenados = [...premiosOriginais].sort((a, b) => {
+      const posA = parseInt(a.posicao?.replace(/\D/g, '') || '0')
+      const posB = parseInt(b.posicao?.replace(/\D/g, '') || '0')
+      return posA - posB
+    })
+    
+    // Verificar quantos prêmios temos (geralmente 1º ao 5º)
+    const qtdPremiosOriginais = premiosOrdenados.length
+    
+    // Se temos pelo menos 5 prêmios e precisamos calcular mais, calcular prêmios adicionais
+    if (qtdPremiosOriginais >= 5) {
+      // Converter prêmios originais para números
+      const milhares = premiosOrdenados.slice(0, 5).map(p => {
+        const milharStr = (p.numero || '').replace(/\D/g, '').padStart(4, '0')
+        return parseInt(milharStr.slice(-4), 10)
+      })
+      
+      // Verificar quais posições já existem
+      const posicoesExistentes = new Set(
+        premiosOrdenados.map(p => parseInt(p.posicao?.replace(/\D/g, '') || '0'))
+      )
+      
+      // Calcular e adicionar 6º prêmio se não existir e precisar
+      if (limitePremios >= 6 && !posicoesExistentes.has(6)) {
+        const premio6 = calcular6Premio(milhares)
+        const grupo6 = milharParaGrupo(premio6)
+        const animal6 = ANIMALS.find(a => a.group === grupo6)
+        
+        premiosOrdenados.push({
+          posicao: '6º',
+          numero: premio6.toString().padStart(4, '0'),
+          grupo: grupo6.toString().padStart(2, '0'),
+          animal: animal6?.name || '',
+        })
+      }
+      
+      // Calcular e adicionar 7º prêmio se não existir e precisar
+      if (limitePremios >= 7 && !posicoesExistentes.has(7)) {
+        const premio7 = calcular7Premio(milhares)
+        // 7º prêmio tem 3 dígitos, mas formatamos como 4 dígitos (com zero à esquerda)
+        const premio7Formatado = premio7.toString().padStart(3, '0').padStart(4, '0')
+        const grupo7 = milharParaGrupo(parseInt(premio7Formatado, 10))
+        const animal7 = ANIMALS.find(a => a.group === grupo7)
+        
+        premiosOrdenados.push({
+          posicao: '7º',
+          numero: premio7Formatado,
+          grupo: grupo7.toString().padStart(2, '0'),
+          animal: animal7?.name || '',
+        })
+      }
+      
+      // TODO: Implementar cálculo de 8º, 9º e 10º prêmios quando necessário
+      // Para LOTEP e LOTECE que têm 10 prêmios, confirmar regras específicas
+    }
+    
+    // Processar todos os prêmios (originais + calculados)
+    premiosOrdenados.forEach((premio) => {
       // Garantir que milhar sempre tenha 4 dígitos
       let milharNormalizado = premio.numero || ''
       if (milharNormalizado.length < 4) {
@@ -671,25 +742,91 @@ export async function buscarResultadosParaLiquidacao(
       resultadosPorHorario[horario] = []
     }
     
-      extracao.premios.forEach((premio) => {
-        // Garantir que milhar sempre tenha 4 dígitos
-        let milharNormalizado = premio.numero || ''
-        if (milharNormalizado.length < 4) {
-          milharNormalizado = milharNormalizado.padStart(4, '0')
-        }
-        
-        resultadosPorHorario[horario].push({
-          position: premio.posicao,
-          milhar: milharNormalizado,
-          grupo: premio.grupo || '', // Garantir que seja string
-          animal: premio.animal || '', // Garantir que seja string
-          drawTime: extracao.horario,
-          horario: extracao.horario,
-          loteria: loteriaInfo.nome,
-          date: data,
-          dataExtracao: data,
-        })
+    // Verificar se é LOTEP ou LOTECE (têm até 10 prêmios)
+    const isLotepOuLotece = loteriaInfo.nome?.toUpperCase().includes('LOTEP') || 
+                            loteriaInfo.nome?.toUpperCase().includes('LOTECE')
+    const limitePremios = isLotepOuLotece ? 10 : 7
+    
+    // Processar prêmios que vieram da API
+    const premiosOriginais = [...extracao.premios]
+    
+    // Ordenar prêmios por posição
+    const premiosOrdenados = [...premiosOriginais].sort((a, b) => {
+      const posA = parseInt(a.posicao?.replace(/\D/g, '') || '0')
+      const posB = parseInt(b.posicao?.replace(/\D/g, '') || '0')
+      return posA - posB
+    })
+    
+    // Verificar quantos prêmios temos (geralmente 1º ao 5º)
+    const qtdPremiosOriginais = premiosOrdenados.length
+    
+    // Se temos pelo menos 5 prêmios e precisamos calcular mais, calcular prêmios adicionais
+    if (qtdPremiosOriginais >= 5) {
+      // Converter prêmios originais para números
+      const milhares = premiosOrdenados.slice(0, 5).map(p => {
+        const milharStr = (p.numero || '').replace(/\D/g, '').padStart(4, '0')
+        return parseInt(milharStr.slice(-4), 10)
       })
+      
+      // Verificar quais posições já existem
+      const posicoesExistentes = new Set(
+        premiosOrdenados.map(p => parseInt(p.posicao?.replace(/\D/g, '') || '0'))
+      )
+      
+      // Calcular e adicionar 6º prêmio se não existir e precisar
+      if (limitePremios >= 6 && !posicoesExistentes.has(6)) {
+        const premio6 = calcular6Premio(milhares)
+        const grupo6 = milharParaGrupo(premio6)
+        const animal6 = ANIMALS.find(a => a.group === grupo6)
+        
+        premiosOrdenados.push({
+          posicao: '6º',
+          numero: premio6.toString().padStart(4, '0'),
+          grupo: grupo6.toString().padStart(2, '0'),
+          animal: animal6?.name || '',
+        })
+      }
+      
+      // Calcular e adicionar 7º prêmio se não existir e precisar
+      if (limitePremios >= 7 && !posicoesExistentes.has(7)) {
+        const premio7 = calcular7Premio(milhares)
+        // 7º prêmio tem 3 dígitos, mas formatamos como 4 dígitos (com zero à esquerda)
+        const premio7Formatado = premio7.toString().padStart(3, '0').padStart(4, '0')
+        const grupo7 = milharParaGrupo(parseInt(premio7Formatado, 10))
+        const animal7 = ANIMALS.find(a => a.group === grupo7)
+        
+        premiosOrdenados.push({
+          posicao: '7º',
+          numero: premio7Formatado,
+          grupo: grupo7.toString().padStart(2, '0'),
+          animal: animal7?.name || '',
+        })
+      }
+      
+      // TODO: Implementar cálculo de 8º, 9º e 10º prêmios quando necessário
+      // Para LOTEP e LOTECE que têm 10 prêmios, confirmar regras específicas
+    }
+    
+    // Processar todos os prêmios (originais + calculados)
+    premiosOrdenados.forEach((premio) => {
+      // Garantir que milhar sempre tenha 4 dígitos
+      let milharNormalizado = premio.numero || ''
+      if (milharNormalizado.length < 4) {
+        milharNormalizado = milharNormalizado.padStart(4, '0')
+      }
+      
+      resultadosPorHorario[horario].push({
+        position: premio.posicao,
+        milhar: milharNormalizado,
+        grupo: premio.grupo || '', // Garantir que seja string
+        animal: premio.animal || '', // Garantir que seja string
+        drawTime: extracao.horario,
+        horario: extracao.horario,
+        loteria: loteriaInfo.nome,
+        date: data,
+        dataExtracao: data,
+      })
+    })
   })
   
   return {

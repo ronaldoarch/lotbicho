@@ -19,6 +19,21 @@ export const maxDuration = 120 // 120 segundos (2 minutos) para processar muitas
 export const dynamic = 'force-dynamic'
 
 /**
+ * Retorna o limite de prêmios baseado no nome da loteria.
+ * LOTEP e LOTECE têm 10 prêmios, outras loterias têm 7.
+ */
+function getLimitePremios(loteriaNome: string | null | undefined): number {
+  if (!loteriaNome) return 7
+  
+  const nomeLower = loteriaNome.toLowerCase()
+  if (nomeLower.includes('lotep') || nomeLower.includes('lotece')) {
+    return 10
+  }
+  
+  return 7
+}
+
+/**
  * Verifica se já passou o horário de apuração para uma extração
  * 
  * IMPORTANTE: Esta função usa os horários REAIS de apuração do bichocerto.com,
@@ -1123,10 +1138,11 @@ export async function POST(request: NextRequest) {
         console.log(`   ✅ Usando horário selecionado: "${horarioSelecionado}" com ${resultadosDoHorario.length} resultado(s)`)
         
         // VALIDAÇÃO CRÍTICA 1: Verificar se o resultado está completo antes de liquidar
-        // O resultado deve ter pelo menos 7 posições (1º ao 7º) para ser considerado válido
+        // O resultado deve ter pelo menos o limite de posições (1º ao 7º ou 1º ao 10º para LOTEP/LOTECE) para ser considerado válido
         if (resultadosDoHorario.length < 7) {
           console.log(`   ⚠️ Resultado incompleto: apenas ${resultadosDoHorario.length} posição(ões) encontrada(s)`)
-          console.log(`   ⏸️  Aguardando resultado completo (necessário: 7 posições) para aposta ${aposta.id}`)
+          const limitePremios = getLimitePremios(loteriaNome)
+          console.log(`   ⏸️  Aguardando resultado completo (necessário: ${limitePremios} posições) para aposta ${aposta.id}`)
           continue
         }
         
@@ -1230,27 +1246,31 @@ export async function POST(request: NextRequest) {
         const posicoesArray = Array.from(posicoesEncontradas).sort((a, b) => a - b)
         console.log(`   📊 Posições encontradas nos resultados: [${posicoesArray.join(', ')}] (total: ${resultadosOrdenados.length} resultado(s))`)
         
-        // Verificar se temos pelo menos as posições de 1º a 7º
-        const posicoesNecessarias = [1, 2, 3, 4, 5, 6, 7]
+        // Determinar limite de prêmios baseado na loteria (LOTEP/LOTECE = 10, outras = 7)
+        const limitePremios = getLimitePremios(loteriaNome)
+        console.log(`   📊 Limite de prêmios para "${loteriaNome}": ${limitePremios} posições`)
+        
+        // Verificar se temos pelo menos as posições necessárias (1º ao limite)
+        const posicoesNecessarias = Array.from({ length: limitePremios }, (_, i) => i + 1)
         const temTodasPosicoes = posicoesNecessarias.every(pos => posicoesEncontradas.has(pos))
         
         if (!temTodasPosicoes) {
           const posicoesFaltando = posicoesNecessarias.filter(pos => !posicoesEncontradas.has(pos))
-          console.log(`   ⚠️ Resultado incompleto: faltam posições ${posicoesFaltando.join(', ')}`)
+          console.log(`   ⚠️ Resultado incompleto: faltam posições ${posicoesFaltando.join(', ')} (necessário: 1º ao ${limitePremios}º)`)
           console.log(`   📋 Detalhes dos resultados encontrados:`)
-          resultadosOrdenados.slice(0, 10).forEach((r, idx) => {
+          resultadosOrdenados.slice(0, limitePremios + 3).forEach((r, idx) => {
             console.log(`      ${idx + 1}. Posição: ${r.position || 'N/A'}, Milhar: ${r.milhar || 'N/A'}, Grupo: ${r.grupo || 'N/A'}`)
           })
           console.log(`   ⏸️  Aguardando resultado completo para aposta ${aposta.id}`)
           continue
         }
         
-        // Se tem todas as posições, fazer slice para pegar apenas as 7 primeiras
-        const resultadosParaLiquidacao = resultadosOrdenados.slice(0, 7)
+        // Se tem todas as posições, fazer slice para pegar até o limite
+        const resultadosParaLiquidacao = resultadosOrdenados.slice(0, limitePremios)
         
         // VALIDAÇÃO FINAL: Verificar se o resultado corresponde à extração/horário/data
         // Esta validação é menos restritiva - se já passou pelos filtros anteriores (loteria, horário, data),
-        // e temos todas as 7 posições, podemos liquidar
+        // e temos todas as posições necessárias, podemos liquidar
         if (loteriaNome && resultadosDoHorario.length > 0) {
           const loteriaResultado = resultadosDoHorario[0].loteria?.toLowerCase().trim() || ''
           const loteriaApostaNormalizada = loteriaNome.toLowerCase().trim()

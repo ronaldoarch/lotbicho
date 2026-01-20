@@ -718,17 +718,107 @@ export function conferirPasse(
 // ============================================================================
 // SORTEIO INSTANTÂNEO
 // ============================================================================
+// CÁLCULO DE PRÊMIOS ADICIONAIS (LOTEP e LOTECE)
+// ============================================================================
+
+/**
+ * Calcula o 6º prêmio somando os 5 primeiros prêmios.
+ * Regra: Soma dos 5 primeiros, pega os últimos 4 dígitos.
+ * 
+ * @param premios Array com pelo menos 5 prêmios
+ * @returns 6º prêmio (4 dígitos: 0000-9999)
+ */
+export function calcular6Premio(premios: number[]): number {
+  if (premios.length < 5) {
+    throw new Error('Precisa de pelo menos 5 prêmios para calcular o 6º')
+  }
+  
+  // Soma os 5 primeiros prêmios
+  const soma = premios[0] + premios[1] + premios[2] + premios[3] + premios[4]
+  
+  // Pega últimos 4 dígitos (módulo 10000)
+  return soma % 10000
+}
+
+/**
+ * Calcula o 7º prêmio multiplicando o 1º pelo 2º.
+ * Regra: Multiplica 1º × 2º, remove 3 últimos dígitos, pega os 3 do meio.
+ * 
+ * @param premios Array com pelo menos 2 prêmios
+ * @returns 7º prêmio (3 dígitos: 000-999)
+ */
+export function calcular7Premio(premios: number[]): number {
+  if (premios.length < 2) {
+    throw new Error('Precisa de pelo menos 2 prêmios para calcular o 7º')
+  }
+  
+  // Multiplica 1º × 2º
+  const multiplicacao = premios[0] * premios[1]
+  
+  // Divide por 1000 (remove 3 últimos dígitos)
+  const dividido = Math.floor(multiplicacao / 1000)
+  
+  // Pega módulo 1000 (pega 3 dígitos do meio)
+  return dividido % 1000
+}
+
+/**
+ * Calcula prêmios adicionais (6º e 7º) a partir dos primeiros prêmios.
+ * Usado para LOTEP e LOTECE que têm até 10 prêmios.
+ * 
+ * @param premios Array com os primeiros prêmios sorteados (pelo menos 5)
+ * @param qtdPremiosDesejados Quantidade total de prêmios desejados (6, 7, 8, 9 ou 10)
+ * @returns Array completo com prêmios sorteados + calculados
+ */
+export function calcularPremiosAdicionais(
+  premios: number[],
+  qtdPremiosDesejados: number = 7
+): number[] {
+  if (premios.length < 5) {
+    throw new Error('Precisa de pelo menos 5 prêmios sorteados para calcular prêmios adicionais')
+  }
+  
+  const resultado = [...premios] // Copia os prêmios sorteados
+  
+  // 6º prêmio: Soma dos 5 primeiros
+  if (qtdPremiosDesejados >= 6) {
+    resultado.push(calcular6Premio(premios))
+  }
+  
+  // 7º prêmio: Multiplicação 1º × 2º
+  if (qtdPremiosDesejados >= 7) {
+    resultado.push(calcular7Premio(premios))
+  }
+  
+  // TODO: Implementar regras para 8º, 9º e 10º prêmios quando necessário
+  // Para LOTEP e LOTECE que têm 10 prêmios, confirmar regras específicas
+  
+  return resultado
+}
+
+// ============================================================================
 
 /**
  * Gera um resultado instantâneo (lista de milhares sorteadas).
+ * Para LOTEP e LOTECE (qtdPremios >= 6), calcula os prêmios 6º e 7º automaticamente.
  */
 export function gerarResultadoInstantaneo(qtdPremios: number = 7): InstantResult {
+  // Para até 5 prêmios, gera todos aleatoriamente
+  // Para 6 ou mais, gera os 5 primeiros e calcula os demais
+  const qtdSorteados = qtdPremios <= 5 ? qtdPremios : 5
   const prizes: number[] = []
   
-  for (let i = 0; i < qtdPremios; i++) {
+  for (let i = 0; i < qtdSorteados; i++) {
     // Gera número aleatório de 0000 a 9999
     const milhar = Math.floor(Math.random() * 10000)
     prizes.push(milhar)
+  }
+  
+  // Se precisar de mais prêmios (LOTEP/LOTECE), calcula os adicionais
+  if (qtdPremios > 5) {
+    const premiosCompletos = calcularPremiosAdicionais(prizes, qtdPremios)
+    prizes.length = 0 // Limpa array
+    prizes.push(...premiosCompletos) // Adiciona prêmios completos
   }
   
   const groups = prizes.map((milhar) => milharParaGrupo(milhar))

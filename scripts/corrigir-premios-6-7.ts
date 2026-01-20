@@ -50,6 +50,8 @@ async function corrigirPremios() {
     let naoLotepLotece = 0
     let premiosRecalculados = 0
     let saldosAjustados = 0
+    let lotepLoteceEncontradas = 0
+    let lotepLoteceComPremioErrado = 0
 
     for (const aposta of apostas) {
       const detalhes = aposta.detalhes as any
@@ -70,13 +72,36 @@ async function corrigirPremios() {
       }
 
       // Verificar se é LOTEP ou LOTECE
-      const loteriaNome = aposta.loteria?.toLowerCase() || ''
-      const isLotepOuLotece = loteriaNome.includes('lotep') || loteriaNome.includes('lotece')
+      // Verificar no campo loteria e também nos detalhes
+      const loteriaNome = (aposta.loteria || '').toLowerCase()
+      const loteriaNomeDetalhes = (detalhes?.loteria || '').toLowerCase()
+      const loteriaCompleta = `${loteriaNome} ${loteriaNomeDetalhes}`.toLowerCase()
+      
+      const isLotepOuLotece = 
+        loteriaNome.includes('lotep') || 
+        loteriaNome.includes('lotece') ||
+        loteriaNomeDetalhes.includes('lotep') ||
+        loteriaNomeDetalhes.includes('lotece') ||
+        loteriaCompleta.includes('lotep') ||
+        loteriaCompleta.includes('lotece') ||
+        // Verificar também códigos
+        loteriaNome === 'pb' || // Paraíba = LOTEP
+        loteriaNome === 'ce' || // Ceará = LOTECE
+        loteriaNome === 'lce' || // Código LOTECE
+        (loteriaNome.includes('paraiba') && loteriaNome.includes('lotep')) ||
+        (loteriaNome.includes('paraíba') && loteriaNome.includes('lotep')) ||
+        (loteriaNome.includes('ceara') && loteriaNome.includes('lotece')) ||
+        (loteriaNome.includes('ceará') && loteriaNome.includes('lotece'))
 
       if (!isLotepOuLotece) {
         naoLotepLotece++
         continue
       }
+      
+      lotepLoteceEncontradas++
+      console.log(`\n🎯 Aposta LOTEP/LOTECE encontrada: ${aposta.id}`)
+      console.log(`   Loteria: ${aposta.loteria || 'N/A'}`)
+      console.log(`   Prêmios atuais: ${prizes.slice(0, 7).map((p: any) => String(p).padStart(4, '0')).join(', ')}`)
 
       // Precisamos ter pelo menos 5 prêmios para calcular
       if (prizes.length < 5) {
@@ -114,10 +139,16 @@ async function corrigirPremios() {
       const precisaCorrigir6 = premio6AtualNum !== premio6Correto
       const precisaCorrigir7 = premio7AtualNum !== premio7Correto
 
+      // Debug: sempre mostrar comparação para LOTEP/LOTECE
+      console.log(`   Comparação de prêmios:`)
+      console.log(`   6º atual: ${String(premio6AtualNum).padStart(4, '0')} vs correto: ${String(premio6Correto).padStart(4, '0')} ${precisaCorrigir6 ? '❌' : '✅'}`)
+      console.log(`   7º atual: ${String(premio7AtualNum).padStart(4, '0')} vs correto: ${String(premio7Correto).padStart(4, '0')} ${precisaCorrigir7 ? '❌' : '✅'}`)
+
       if (precisaCorrigir6 || precisaCorrigir7) {
+        lotepLoteceComPremioErrado++
         console.log(`\n🔧 Corrigindo aposta ${aposta.id} (${aposta.loteria})`)
-        console.log(`   Prêmios atuais: 6º=${premio6AtualNum}, 7º=${premio7AtualNum}`)
-        console.log(`   Prêmios corretos: 6º=${premio6Correto}, 7º=${premio7Correto}`)
+        console.log(`   Prêmios atuais: 6º=${String(premio6AtualNum).padStart(4, '0')}, 7º=${String(premio7AtualNum).padStart(4, '0')}`)
+        console.log(`   Prêmios corretos: 6º=${String(premio6Correto).padStart(4, '0')}, 7º=${String(premio7Correto).padStart(4, '0')}`)
 
         // Criar novo array de prêmios com valores corrigidos
         const novosPremios = [...prizes.slice(0, 5)] // Manter apenas os 5 primeiros
@@ -287,6 +318,8 @@ async function corrigirPremios() {
     console.log('📊 RESUMO DA CORREÇÃO')
     console.log('='.repeat(50))
     console.log(`Total de apostas processadas: ${apostas.length}`)
+    console.log(`LOTEP/LOTECE encontradas: ${lotepLoteceEncontradas}`)
+    console.log(`LOTEP/LOTECE com prêmio errado: ${lotepLoteceComPremioErrado}`)
     console.log(`Apostas corrigidas: ${corrigidas}`)
     console.log(`Prêmios recalculados: ${premiosRecalculados}`)
     console.log(`Saldos ajustados: ${saldosAjustados}`)
